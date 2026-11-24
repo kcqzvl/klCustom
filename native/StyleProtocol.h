@@ -37,11 +37,11 @@ static_assert(sizeof(Style) == 36 && sizeof(Session) == 288);
 
 inline std::wstring SessionName(DWORD process)
 {
-    return L"Local\\kzlSystemCustomize.StartMenu.4." + std::to_wstring(process);
+    return L"Local\\kzlSystemCustomize.StartMenu.5." + std::to_wstring(process);
 }
 
 inline UINT ConnectionMessage()
 {
-    static const UINT message = RegisterWindowMessageW(L"kzlSystemCustomize.ConnectStartMenu.4");
+    static const UINT message = RegisterWindowMessageW(L"kzlSystemCustomize.ConnectStartMenu.5");
     return message;
 }

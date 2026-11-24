@@ -1,8 +1,10 @@
 # kzlSystemCustomize
 
-打开 `artifacts/kzlSystemCustomize-shared-backdrop/kzlSystemCustomize.exe`。应用内标题为 **kcqzvl-Customize**。编辑器使用 Windows 的应用模式和强调色，并沿用已有的颜色与材质草稿。
+将发布 ZIP 完整解压到当前用户可写的目录，然后运行 `kzlSystemCustomize.exe`。程序需要 [.NET 10 Desktop Runtime（Windows x64）](https://dotnet.microsoft.com/download/dotnet/10.0)。从源码构建时，默认可执行文件位于 `artifacts/kzlSystemCustomize-shared-backdrop/`。
 
-独立版通过随程序发布的 `kzlStartMenuHost4.dll` 在开始菜单的 UI 线程读取 XAML 根节点。它接收固定格式的区域和材质参数，设置目标控件的背景，恢复时还原原有画刷。应用和恢复均等待宿主确认。
+应用内标题为 **kcqzvl-Customize**。编辑器使用 Windows 的应用模式和强调色，并沿用已有的颜色与材质草稿。
+
+独立版通过随程序发布的 `kzlStartMenuHost5.dll` 在开始菜单的 UI 线程读取 XAML 根节点。它接收固定格式的区域和材质参数，设置目标控件的背景，恢复时还原原有画刷。应用和恢复均等待宿主确认。
 
 右侧伴侣面板选择「亚克力」后，可启用「跟随主菜单背景」。菜单打开时，工具箱读取靠近分隔线的主菜单背景窄条，以其纵向颜色生成右侧背景。取样数据只在内存中使用。关闭此选项可继续使用右侧自己的亚克力参数。
 

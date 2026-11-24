@@ -72,6 +72,20 @@ internal sealed class StyleBrushes(Color[] wallpaper)
 
     internal static string Hex(Color color) => $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
 
+    internal static string FormatOpacity(byte alpha) =>
+        (alpha * 100m / byte.MaxValue).ToString("0.##", CultureInfo.InvariantCulture);
+
+    internal static bool TryParseOpacity(string text, out byte alpha)
+    {
+        alpha = 0;
+        if (!decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var percent)
+            || percent is < 0 or > 100)
+            return false;
+
+        alpha = (byte)Math.Round(percent * byte.MaxValue / 100m, MidpointRounding.AwayFromZero);
+        return true;
+    }
+
     internal static void Validate(StyleOptions options)
     {
         _ = ParseColor(options.Color);

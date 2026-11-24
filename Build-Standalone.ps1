@@ -1,15 +1,15 @@
 param(
     [Parameter(Mandatory)]
-    [string]$ClangPath
+    [string]$ClangPath,
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts\kzlSystemCustomize-shared-backdrop')
 )
 
 $ErrorActionPreference = 'Stop'
 $clang = (Resolve-Path -LiteralPath $ClangPath).Path
-$release = Join-Path $PSScriptRoot 'artifacts\kzlSystemCustomize-shared-backdrop'
-New-Item -ItemType Directory -Path $release -Force | Out-Null
+$release = (New-Item -ItemType Directory -Path $OutputDirectory -Force).FullName
 
 $native = Join-Path $PSScriptRoot 'native\StartMenuNative.cpp'
-$output = Join-Path $release 'kzlStartMenuHost4.dll'
+$output = Join-Path $release 'kzlStartMenuHost5.dll'
 & $clang --target=x86_64-w64-mingw32 -std=c++23 -O2 -shared -static -DUNICODE -D_UNICODE $native -lole32 -loleaut32 -lruntimeobject -ldxguid -lgdi32 -o $output
 if ($LASTEXITCODE) { throw "Native build failed ($LASTEXITCODE)" }
 

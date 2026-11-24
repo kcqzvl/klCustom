@@ -126,15 +126,30 @@ public partial class MainWindow : Window
 
         foreach (char channel in "RGBA")
         {
+            bool opacity = channel == 'A';
             var label = new TextBlock { Text = channel.ToString(), Style = (Style)FindResource("Secondary") };
-            var input = new TextBox { MaxLength = 3, Height = 29, Margin = new Thickness(0, 3, 0, 0) };
-            System.Windows.Automation.AutomationProperties.SetName(input, channel.ToString());
+            var input = new TextBox { MaxLength = opacity ? 6 : 3, Height = 29 };
+            System.Windows.Automation.AutomationProperties.SetName(input, opacity ? "不透明度（百分比）" : channel.ToString());
             input.TextChanged += ChannelsChanged;
             channels.Add(input);
+            var field = new DockPanel { Margin = new Thickness(0, 3, 0, 0) };
+            if (opacity)
+            {
+                var suffix = new TextBlock
+                {
+                    Text = "%",
+                    Style = (Style)FindResource("Secondary"),
+                    Margin = new Thickness(4, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                DockPanel.SetDock(suffix, Dock.Right);
+                field.Children.Add(suffix);
+            }
+            field.Children.Add(input);
             Channels.Children.Add(new StackPanel
             {
-                Margin = new Thickness(0, 0, channel == 'A' ? 0 : 6, 0),
-                Children = { label, input },
+                Margin = new Thickness(0, 0, opacity ? 0 : 6, 0),
+                Children = { label, field },
             });
         }
     }
@@ -202,13 +217,17 @@ public partial class MainWindow : Window
         Sliders.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 11), Children = { heading, slider } });
     }
 
-    private void SetColorControls(Color color, bool updateHex)
+    private void SetColorControls(Color color, bool updateHex, bool updateChannels = true)
     {
         if (updateHex)
             HexBox.Text = StyleBrushes.Hex(color);
-        byte[] rgba = [color.R, color.G, color.B, color.A];
-        for (int index = 0; index < rgba.Length; index++)
-            channels[index].Text = rgba[index].ToString(CultureInfo.InvariantCulture);
+        if (updateChannels)
+        {
+            channels[0].Text = color.R.ToString(CultureInfo.InvariantCulture);
+            channels[1].Text = color.G.ToString(CultureInfo.InvariantCulture);
+            channels[2].Text = color.B.ToString(CultureInfo.InvariantCulture);
+            channels[3].Text = StyleBrushes.FormatOpacity(color.A);
+        }
         SwatchFill.Background = new SolidColorBrush(color);
     }
 
@@ -243,16 +262,17 @@ public partial class MainWindow : Window
     {
         if (updating)
             return;
-        var values = new byte[4];
-        validColor = channels.Select((input, index) => byte.TryParse(input.Text, NumberStyles.None,
-            CultureInfo.InvariantCulture, out values[index])).All(valid => valid);
-        if (!validColor)
+        if (!byte.TryParse(channels[0].Text, NumberStyles.None, CultureInfo.InvariantCulture, out byte red)
+            || !byte.TryParse(channels[1].Text, NumberStyles.None, CultureInfo.InvariantCulture, out byte green)
+            || !byte.TryParse(channels[2].Text, NumberStyles.None, CultureInfo.InvariantCulture, out byte blue)
+            || !StyleBrushes.TryParseOpacity(channels[3].Text, out byte alpha))
         {
-            StatusText.Text = "RGBA 通道范围为 0 到 255。";
+            validColor = false;
+            StatusText.Text = "RGB 范围为 0 到 255，不透明度范围为 0% 到 100%。";
             UpdateButtons();
             return;
         }
-        SetDraftColor(Color.FromArgb(values[3], values[0], values[1], values[2]));
+        SetDraftColor(Color.FromArgb(alpha, red, green, blue), updateChannels: false);
     }
 
     private void Swatch_Click(object sender, RoutedEventArgs args)
@@ -267,11 +287,11 @@ public partial class MainWindow : Window
             SetDraftColor(Color.FromArgb(original.A, picker.Color.R, picker.Color.G, picker.Color.B));
     }
 
-    private void SetDraftColor(Color color)
+    private void SetDraftColor(Color color, bool updateChannels = true)
     {
         validColor = true;
         updating = true;
-        SetColorControls(color, updateHex: true);
+        SetColorControls(color, updateHex: true, updateChannels: updateChannels);
         updating = false;
         UpdateDraft(Options(SelectedRegion) with { Color = StyleBrushes.Hex(color) });
     }

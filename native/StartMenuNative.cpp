@@ -4,6 +4,7 @@
 #undef GetCurrentTime
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.UI.Core.h>
+#include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <chrono>
 #include <utility>
 #include <vector>
@@ -21,6 +22,7 @@ namespace
         int region;
         foundation::IInspectable original{nullptr};
         foundation::IInspectable current{nullptr};
+        bool usesSharedBackdrop{};
     };
 
     class Backgrounds
@@ -30,17 +32,25 @@ namespace
         {
             timer.Interval(std::chrono::milliseconds(400));
             timer.Tick([this](auto&&, auto&&) { Update(); });
+            backdropTimer.Interval(std::chrono::milliseconds(33));
+            backdropTimer.Tick([this](auto&&, auto&&) { UpdateBackdrop(); });
+            core = ui::Core::CoreWindow::GetForCurrentThread();
         }
 
         ~Backgrounds()
         {
             timer.Stop();
+            backdropTimer.Stop();
             UnmapViewOfFile(session);
             CloseHandle(mapping);
         }
 
         void Start()
         {
+            visibilityChanged = core.VisibilityChanged(winrt::auto_revoke, [this](auto&&, auto&& args) {
+                if (!args.Visible())
+                    ClearBackdrop();
+            });
             Update();
             timer.Start();
         }
@@ -81,7 +91,7 @@ namespace
             if (existing != tracked.end())
             {
                 // The current writer owns this property until the user restores the region.
-                if (existing->style == settings && (!shared || existing->current == sharedBrush))
+                if (existing->style == settings && existing->usesSharedBackdrop == shared)
                     return true;
             }
             else if (element.GetBindingExpression(property))
@@ -101,7 +111,8 @@ namespace
                 return false;
             if (existing == tracked.end())
             {
-                tracked.push_back({winrt::make_weak(element), settings, target.region, element.ReadLocalValue(property), brush});
+                tracked.push_back({winrt::make_weak(element), settings, target.region, element.ReadLocalValue(property),
+                    brush, shared});
                 try { element.SetValue(property, brush); }
                 catch (...) { tracked.pop_back(); throw; }
             }
@@ -110,6 +121,7 @@ namespace
                 element.SetValue(property, brush);
                 existing->style = settings;
                 existing->current = brush;
+                existing->usesSharedBackdrop = shared;
             }
             return true;
         }
@@ -134,7 +146,11 @@ namespace
                         if (!Apply(element, target, style, sharedBrush))
                             failed |= bit;
                         else if (!target.overlay && style.material != Material::Original)
+                        {
                             applied |= bit;
+                            if (target.region == 6 && style.material == Material::Acrylic && style.palette[0])
+                                backdropTarget = winrt::make_weak(element);
+                        }
                     }
                     catch (...) { failed |= bit; }
                 }
@@ -159,12 +175,73 @@ namespace
             return nullptr;
         }
 
-        void RefreshBackdrop(xaml::DependencyObject const& root)
+        void SwapBackdrop()
         {
-            auto source = FindMainBackground(root);
-            backdrop::Colors colors{};
-            if (!source || !backdrop::SampleMainBackground(source, colors))
+            if (lastRevision != InterlockedCompareExchange(&session->request, 0, 0))
                 return;
+            auto target = backdropTarget.get();
+            if (!target)
+                return;
+            auto entry = std::find_if(tracked.begin(), tracked.end(),
+                [&](auto const& item) { return item.element.get() == target; });
+            if (entry == tracked.end() || target.ReadLocalValue(BackgroundProperty(target)) != entry->current)
+                return;
+            Apply(target, {6}, entry->style, sharedBackground);
+        }
+
+        void ClearBackdrop() noexcept
+        {
+            sampleArea = {};
+            resumeAfter = 0;
+            if (!sharedBackground)
+                return;
+            sharedBackground = nullptr;
+            InterlockedExchange(&session->samples, 0);
+            try { SwapBackdrop(); }
+            catch (...) {}
+        }
+
+        void UpdateBackdrop() noexcept
+        {
+            try
+            {
+                if (!core.Visible())
+                {
+                    ClearBackdrop();
+                    return;
+                }
+                if (lastRevision != InterlockedCompareExchange(&session->request, 0, 0)
+                    || ((InterlockedCompareExchange(&session->blocked, 0, 0) | external) & (1L << 6)))
+                    return;
+                auto source = backdropSource.get();
+                RECT area{};
+                if (!source || !backdropTarget.get() || !backdrop::MainBackgroundArea(source, area))
+                {
+                    sampleArea = {};
+                    return;
+                }
+                auto now = GetTickCount64();
+                if (backdrop::HasPopup(source))
+                {
+                    resumeAfter = now + 100;
+                    return;
+                }
+                if (!EqualRect(&area, &sampleArea))
+                {
+                    sampleArea = area;
+                    return;
+                }
+                backdrop::Colors colors{};
+                if (now < resumeAfter || !backdrop::Sample(area, colors))
+                    return;
+                RefreshBackdrop(colors);
+                SwapBackdrop();
+            }
+            catch (...) {}
+        }
+
+        void RefreshBackdrop(backdrop::Colors const& colors)
+        {
             if (!sharedBackground)
             {
                 sharedBackground = media::LinearGradientBrush();
@@ -236,11 +313,17 @@ namespace
                         auto companion = styles[6];
                         bool shared = companion.material == Material::Acrylic && companion.palette[0] != 0;
                         if (shared && (blocked & (1L << 6)) == 0)
-                            RefreshBackdrop(root);
+                        {
+                            backdropSource = winrt::make_weak(FindMainBackground(root));
+                            if (!backdropTimer.IsEnabled())
+                                backdropTimer.Start();
+                        }
                         else
                         {
-                            sharedBackground = nullptr;
-                            InterlockedExchange(&session->samples, 0);
+                            backdropTimer.Stop();
+                            ClearBackdrop();
+                            backdropSource = {};
+                            backdropTarget = {};
                         }
                         Visit(root, styles, sharedBackground, blocked, matched, applied, failed);
                     }
@@ -260,8 +343,15 @@ namespace
         HANDLE mapping;
         Session* session;
         xaml::DispatcherTimer timer;
+        xaml::DispatcherTimer backdropTimer;
+        ui::Core::CoreWindow core{nullptr};
+        ui::Core::CoreWindow::VisibilityChanged_revoker visibilityChanged;
         std::vector<Tracked> tracked;
         media::LinearGradientBrush sharedBackground{nullptr};
+        winrt::weak_ref<xaml::FrameworkElement> backdropSource;
+        winrt::weak_ref<xaml::FrameworkElement> backdropTarget;
+        RECT sampleArea{};
+        ULONGLONG resumeAfter{};
         LONG lastRevision{};
         LONG external{};
         bool idle{};

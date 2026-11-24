@@ -5,6 +5,8 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
@@ -21,7 +23,7 @@ internal sealed record CommitResult(bool Success, string Message);
 internal sealed class NativeStartMenu
 {
     private const string HostName = "StartMenuExperienceHost";
-    private const string DllName = "kzlStartMenuHost4.dll";
+    private const string DllName = "kzlStartMenuHost5.dll";
     private const int HeaderSize = 32;
     private const int StyleSize = 36;
     private static readonly int LegacyMapSize = HeaderSize + StyleSize * Region.All.Length;
@@ -61,10 +63,13 @@ internal sealed class NativeStartMenu
         using var map = OpenSession(host.Id);
         using var legacy2 = OpenSession(host.Id, 2);
         using var legacy3 = OpenSession(host.Id, 3);
+        using var legacy4 = OpenSession(host.Id, 4);
         using var view = map?.CreateViewAccessor(0, MapSize, MemoryMappedFileAccess.Read);
         using var view2 = legacy2?.CreateViewAccessor(0, LegacyMapSize, MemoryMappedFileAccess.Read);
         using var view3 = legacy3?.CreateViewAccessor(0, LegacyMapSize, MemoryMappedFileAccess.Read);
-        int applied = (view?.ReadInt32(16) ?? 0) | (view2?.ReadInt32(16) ?? 0) | (view3?.ReadInt32(16) ?? 0);
+        using var view4 = legacy4?.CreateViewAccessor(0, MapSize, MemoryMappedFileAccess.Read);
+        int applied = (view?.ReadInt32(16) ?? 0) | (view2?.ReadInt32(16) ?? 0)
+            | (view3?.ReadInt32(16) ?? 0) | (view4?.ReadInt32(16) ?? 0);
         return Region.All.Where((_, index) => (applied & (1 << index)) != 0)
             .Select(region => region.Id).ToHashSet(StringComparer.Ordinal);
     }
@@ -163,10 +168,12 @@ internal sealed class NativeStartMenu
 
         using var legacy2 = OpenSession(host.Id, 2);
         using var legacy3 = OpenSession(host.Id, 3);
+        using var legacy4 = OpenSession(host.Id, 4);
         using var view2 = legacy2?.CreateViewAccessor(0, LegacyMapSize);
         using var view3 = legacy3?.CreateViewAccessor(0, LegacyMapSize);
+        using var view4 = legacy4?.CreateViewAccessor(0, MapSize);
         var released = new List<(MemoryMappedViewAccessor View, byte[] Styles)>();
-        foreach (var legacyView in new[] { view2, view3 })
+        foreach (var legacyView in new[] { view2, view3, view4 })
         {
             if (legacyView is null || legacyView.ReadInt32(0) != 1)
                 continue;
@@ -270,9 +277,9 @@ internal sealed class NativeStartMenu
         return condition();
     }
 
-    private static string SessionName(int id, int protocol = 4) => $"Local\\kzlSystemCustomize.StartMenu.{protocol}.{id}";
+    private static string SessionName(int id, int protocol = 5) => $"Local\\kzlSystemCustomize.StartMenu.{protocol}.{id}";
 
-    private static MemoryMappedFile? OpenSession(int id, int protocol = 4)
+    private static MemoryMappedFile? OpenSession(int id, int protocol = 5)
     {
         try { return MemoryMappedFile.OpenExisting(SessionName(id, protocol), MemoryMappedFileRights.ReadWrite); }
         catch (FileNotFoundException) { return null; }
@@ -310,13 +317,37 @@ internal sealed class NativeStartMenu
         return mask;
     }
 
+    private static void EnsureComponentAccess(string path)
+    {
+        // Extracting a ZIP does not restore the component's Windows access rules.
+        var file = new FileInfo(path);
+        var access = file.GetAccessControl(AccessControlSections.Access);
+        const FileSystemRights required = FileSystemRights.ReadAndExecute;
+        var rules = access.GetAccessRules(true, true, typeof(SecurityIdentifier)).OfType<FileSystemAccessRule>();
+        bool changed = false;
+        foreach (string sid in new[] { "S-1-15-2-1", "S-1-15-2-2" })
+        {
+            var identity = new SecurityIdentifier(sid);
+            if (rules.Any(rule => rule.IdentityReference.Equals(identity)
+                && rule.AccessControlType == AccessControlType.Allow
+                && (rule.FileSystemRights & required) == required))
+                continue;
+            access.AddAccessRule(new FileSystemAccessRule(identity, required, AccessControlType.Allow));
+            changed = true;
+        }
+        if (changed)
+            file.SetAccessControl(access);
+    }
+
     private static void Connect(Process host, MemoryMappedViewAccessor session)
     {
         const int getMessageHook = 3;
-        uint message = RegisterWindowMessage("kzlSystemCustomize.ConnectStartMenu.4");
+        uint message = RegisterWindowMessage("kzlSystemCustomize.ConnectStartMenu.5");
         if (message == 0)
             throw new System.ComponentModel.Win32Exception();
-        IntPtr library = NativeLibrary.Load(ComponentPath);
+        string component = ComponentPath;
+        EnsureComponentAccess(component);
+        IntPtr library = NativeLibrary.Load(component);
         try
         {
             IntPtr callback = NativeLibrary.GetExport(library, "ConnectStartMenu");

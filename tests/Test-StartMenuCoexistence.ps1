@@ -1,10 +1,11 @@
 # Temporarily changes the live companion panel and restores it at the end.
+param([string]$ReleaseDirectory = (Join-Path (Split-Path $PSScriptRoot) 'artifacts\kzlSystemCustomize-shared-backdrop'))
+
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName PresentationFramework
 
-$release = Join-Path (Split-Path $PSScriptRoot) 'artifacts\kzlSystemCustomize-shared-backdrop'
-$assembly = [Reflection.Assembly]::LoadFrom((Join-Path $release 'kzlSystemCustomize.dll'))
+$assembly = [Reflection.Assembly]::LoadFrom((Join-Path (Resolve-Path -LiteralPath $ReleaseDirectory).Path 'kzlSystemCustomize.dll'))
 $backend = $assembly.GetType('StartStyleToolbox.NativeStartMenu', $true)
 $instance = [Activator]::CreateInstance($backend, $true)
 $style = $assembly.GetType('StartStyleToolbox.StyleOptions', $true)
@@ -32,7 +33,7 @@ $blocked = Invoke-Style main Solid
 if ($blocked.Success -or $blocked.Message -notmatch 'MToolBox') { throw 'Main background conflict was not blocked.' }
 if ($applied.Invoke($instance, $null) -contains 'companion') {
     $current = [IO.MemoryMappedFiles.MemoryMappedFile]::OpenExisting(
-        "Local\kzlSystemCustomize.StartMenu.4.$($before.Id)", $readFlags)
+        "Local\kzlSystemCustomize.StartMenu.5.$($before.Id)", $readFlags)
     try {
         $reader = $current.CreateViewAccessor(0, 288, $readAccess)
         try {

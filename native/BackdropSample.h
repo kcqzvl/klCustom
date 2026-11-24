@@ -69,7 +69,7 @@ namespace backdrop
         return success;
     }
 
-    inline bool SampleMainBackground(xaml::FrameworkElement const& source, Colors& colors)
+    inline bool MainBackgroundArea(xaml::FrameworkElement const& source, RECT& area)
     {
         auto root = source.XamlRoot();
         auto core = winrt::Windows::UI::Core::CoreWindow::GetForCurrentThread();
@@ -93,6 +93,15 @@ namespace backdrop
         LONG bottom = std::lround((position.Y + source.ActualHeight() - 6) * scale);
         if (left < 0 || top < 0 || right > client.right || bottom > client.bottom)
             return false;
-        return Sample({origin.x + left, origin.y + top, origin.x + right, origin.y + bottom}, colors);
+        area = {origin.x + left, origin.y + top, origin.x + right, origin.y + bottom};
+        return true;
+    }
+
+    inline bool HasPopup(xaml::FrameworkElement const& source)
+    {
+        auto root = source.XamlRoot();
+        if (!root)
+            return false;
+        return xaml::Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(root).Size() != 0;
     }
 }
