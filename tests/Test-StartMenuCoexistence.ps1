@@ -1,11 +1,11 @@
 # Temporarily changes the live companion panel and restores it at the end.
-param([string]$ReleaseDirectory = (Join-Path (Split-Path $PSScriptRoot) 'artifacts\kzlSystemCustomize-shared-backdrop'))
+param([string]$ReleaseDirectory = (Join-Path (Split-Path $PSScriptRoot) 'artifacts\kzl Custom'))
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName PresentationFramework
 
-$assembly = [Reflection.Assembly]::LoadFrom((Join-Path (Resolve-Path -LiteralPath $ReleaseDirectory).Path 'kzlSystemCustomize.dll'))
+$assembly = [Reflection.Assembly]::LoadFrom((Join-Path (Resolve-Path -LiteralPath $ReleaseDirectory).Path 'kzl Custom.dll'))
 $backend = $assembly.GetType('StartStyleToolbox.NativeStartMenu', $true)
 $instance = [Activator]::CreateInstance($backend, $true)
 $style = $assembly.GetType('StartStyleToolbox.StyleOptions', $true)

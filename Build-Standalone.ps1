@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)]
     [string]$ClangPath,
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts\kzlSystemCustomize-shared-backdrop')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts\kzl Custom')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,6 +17,6 @@ if ($LASTEXITCODE) { throw "Native build failed ($LASTEXITCODE)" }
 icacls.exe $output /grant '*S-1-15-2-1:(RX)' '*S-1-15-2-2:(RX)' | Out-Null
 if ($LASTEXITCODE) { throw "Could not set read and execute access on $output" }
 
-$project = Join-Path $PSScriptRoot 'StartStyleToolbox.csproj'
+$project = Join-Path $PSScriptRoot 'kzl Custom.csproj'
 dotnet publish $project -c Release -r win-x64 --self-contained false -p:NuGetAudit=false --disable-build-servers -p:UseSharedCompilation=false -o $release
 if ($LASTEXITCODE) { throw "Desktop build failed ($LASTEXITCODE)" }
