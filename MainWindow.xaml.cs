@@ -514,7 +514,7 @@ public partial class MainWindow : Window
         {
             bool opacity = channel == 'A';
             var label = new TextBlock { Text = channel.ToString(), Style = (Style)FindResource("Secondary") };
-            var input = new TextBox { MaxLength = opacity ? 6 : 3, Height = 29 };
+            var input = new TextBox { MaxLength = opacity ? 6 : 3, Height = 29, TextAlignment = TextAlignment.Center };
             System.Windows.Automation.AutomationProperties.SetName(input, opacity ? "不透明度（百分比）" : channel.ToString());
             input.TextChanged += ChannelsChanged;
             channels.Add(input);
