@@ -8,9 +8,9 @@ klCustom 是一款独立的 Windows x64 工具，用于自定义系统开始菜�
 
 ## 开始使用
 
-1. 安装 Windows x64 版 .NET 10 Desktop Runtime。[下载 .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0)
-2. 下载 Windows x64 ZIP，将所有文件解压到当前用户可写的目录。[GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
-3. 运行 `klCustom.exe`。
+1. 下载 Windows x64 ZIP，将所有文件解压到当前用户可写的目录。[GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
+2. 运行 `klCustom.exe`。自包含构建已附带启动工具箱所需的运行库。
+3. 如需在系统中安装 .NET 10 桌面运行库，点击标题栏的 **安装 .NET 10**。系统已有运行库时，标题栏会显示 **已安装**。
 
 ## 自定义开始菜单
 

@@ -8,9 +8,9 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 
 ## Getting started
 
-1. Install the Windows x64 .NET 10 Desktop Runtime. [Download .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0)
-2. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
-3. Run `klCustom.exe`.
+1. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
+2. Run `klCustom.exe`. Self-contained builds include the runtime needed to open the toolbox.
+3. To install the system-wide .NET 10 Desktop Runtime, select **Install .NET 10** in the title bar. If it is already installed, the title bar shows **Installed**.
 
 ## Customizing the Start menu
 

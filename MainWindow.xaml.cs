@@ -5,7 +5,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -46,6 +49,8 @@ public partial class MainWindow : Window
     private bool startMenuExpanded = true;
     private bool startMenuAnimating;
     private bool? editorIsActive;
+    private bool runtimeInstalled;
+    private string? runtimeInstallStatus;
 
     public MainWindow() : this(Profile.Load(), true) { }
 
@@ -71,6 +76,7 @@ public partial class MainWindow : Window
         CreateEditor();
         CreateThemeMaterials();
         LanguageCombo.ItemsSource = Localization.SupportedLanguages.Select(Localization.LanguageName).ToArray();
+        runtimeInstalled = DesktopRuntime.IsInstalled();
         ApplyLanguage();
         updating = false;
         RefreshCompatibility();
@@ -80,6 +86,7 @@ public partial class MainWindow : Window
             editorIsActive = true;
             RefreshTheme();
             RefreshCompatibility();
+            RefreshRuntimeStatus();
         };
         Deactivated += (_, _) =>
         {
@@ -233,6 +240,7 @@ public partial class MainWindow : Window
         AuthorLabel.Text = L("author");
         RepositoryLabel.Text = L("repository");
         VersionLabel.Text = L("version");
+        UpdateRuntimeStatus();
         var regions = LocalizedRegions();
         Regions.ItemsSource = regions;
         Regions.SelectedItem = regions.FirstOrDefault(region => region.Id ==
@@ -481,6 +489,79 @@ public partial class MainWindow : Window
     private void AuthorLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl");
 
     private void RepositoryLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl/klCustom");
+
+    private void RefreshRuntimeStatus()
+    {
+        runtimeInstalled = DesktopRuntime.IsInstalled();
+        UpdateRuntimeStatus();
+    }
+
+    private void UpdateRuntimeStatus()
+    {
+        bool installed = runtimeInstalled && runtimeInstallStatus is null;
+        RuntimeStatus.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+        RuntimeStatus.Text = L("runtimeInstalled");
+        RuntimeStatus.ToolTip = DesktopRuntime.DisplayName;
+        System.Windows.Automation.AutomationProperties.SetName(RuntimeStatus, $"{DesktopRuntime.DisplayName} · {RuntimeStatus.Text}");
+        InstallRuntimeButton.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+        InstallRuntimeButton.IsEnabled = runtimeInstallStatus is null;
+        InstallRuntimeButton.Content = L(runtimeInstallStatus ?? "runtimeInstall");
+        InstallRuntimeButton.ToolTip = DesktopRuntime.DisplayName;
+    }
+
+    private async void InstallRuntime_Click(object sender, RoutedEventArgs args)
+    {
+        if (runtimeInstallStatus is not null)
+            return;
+        RefreshRuntimeStatus();
+        if (runtimeInstalled)
+            return;
+
+        string? installerDirectory = null;
+        runtimeInstallStatus = "runtimeDownloading";
+        UpdateRuntimeStatus();
+        try
+        {
+            installerDirectory = Directory.CreateTempSubdirectory("klCustom-dotnet-").FullName;
+            string installer = Path.Combine(installerDirectory, DesktopRuntime.InstallerName);
+            using (var downloadTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
+                await DesktopRuntime.DownloadInstallerAsync(installer, downloadTimeout.Token);
+            runtimeInstallStatus = "runtimeInstalling";
+            UpdateRuntimeStatus();
+            using var process = Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true })
+                ?? throw new InvalidOperationException("Could not start the .NET installer.");
+            await process.WaitForExitAsync();
+            if (process.ExitCode is 1641 or 3010)
+                StatusText.Text = L("runtimeRestart");
+            else if (process.ExitCode is 1223 or unchecked((int)0x80070642))
+                StatusText.Text = L("runtimeCancelled");
+            else if (process.ExitCode != 0 || !DesktopRuntime.IsInstalled())
+                StatusText.Text = process.ExitCode == 0 ? L("runtimeFailed") : $"{L("runtimeFailed")} ({process.ExitCode})";
+        }
+        catch (Win32Exception error) when (error.NativeErrorCode == 1223)
+        {
+            StatusText.Text = L("runtimeCancelled");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or HttpRequestException
+            or JsonException or KeyNotFoundException or InvalidOperationException or OperationCanceledException or Win32Exception)
+        {
+            StatusText.Text = L("runtimeFailed");
+        }
+        finally
+        {
+            if (installerDirectory is not null)
+            {
+                try
+                {
+                    File.Delete(Path.Combine(installerDirectory, DesktopRuntime.InstallerName));
+                    Directory.Delete(installerDirectory);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            }
+            runtimeInstallStatus = null;
+            RefreshRuntimeStatus();
+        }
+    }
 
     private void OpenUrl(string url)
     {

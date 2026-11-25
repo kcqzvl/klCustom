@@ -21,7 +21,7 @@ icacls.exe $output /grant '*S-1-15-2-1:(RX)' '*S-1-15-2-2:(RX)' | Out-Null
 if ($LASTEXITCODE) { throw "Could not set read and execute access on $output" }
 
 $project = Join-Path $PSScriptRoot 'klCustom.csproj'
-dotnet publish $project -c Release -r win-x64 --self-contained false -p:NuGetAudit=false --disable-build-servers -p:UseSharedCompilation=false -o $release
+dotnet publish $project -c Release -r win-x64 -p:NuGetAudit=false --disable-build-servers -p:UseSharedCompilation=false -o $release
 if ($LASTEXITCODE) { throw "Desktop build failed ($LASTEXITCODE)" }
 
 if ($SigningCertificateThumbprint) {

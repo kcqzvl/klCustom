@@ -477,8 +477,19 @@
             </StackPanel>
             <TextBlock DockPanel.Dock="Left" Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
                        FontWeight="SemiBold" Margin="0,0,18,6" VerticalAlignment="Center"/>
-            <TextBlock x:Name="DependencyStatus" Text="正在检查开始菜单" Style="{StaticResource Secondary}"
-                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,6" TextTrimming="CharacterEllipsis"/>
+            <Grid HorizontalAlignment="Right" Margin="0,0,14,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="InstallRuntimeButton" Click="InstallRuntime_Click" FontSize="12" Padding="9,4"
+                        Margin="0,0,10,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+                <TextBlock x:Name="RuntimeStatus" Style="{StaticResource Secondary}" Margin="0,0,10,0"
+                           VerticalAlignment="Center" Foreground="{Binding Foreground, ElementName=DependencyStatus}"
+                           Visibility="Collapsed"/>
+                <TextBlock x:Name="DependencyStatus" Grid.Column="1" Text="正在检查开始菜单" Style="{StaticResource Secondary}"
+                           MaxWidth="380" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </Grid>
         </DockPanel>
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions><ColumnDefinition Width="258"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
