@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>kzlSystemCustomize</AssemblyName>
     <Product>kzlSystemCustomize</Product>
-    <Version>0.1.2-beta</Version>
+    <Version>0.2.3-beta</Version>
     <StartupObject>StartStyleToolbox.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
