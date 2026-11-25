@@ -8,8 +8,10 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 
 ## Getting started
 
-1. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
-2. Run `klCustom.exe`. Self-contained builds include the runtime needed to open the toolbox.
+- **7z portable package**. Extract all files and run `klCustom.exe`. The archive includes the .NET 10 Desktop Runtime.
+- **EXE downloader**. Choose a destination and whether to download the official x64 .NET 10 Desktop Runtime installer. The downloader extracts the app and saves the installer alongside it when selected.
+
+[GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 
 ## Customizing the Start menu
 
@@ -40,6 +42,8 @@ dotnet run --project tests/RuleChecks.csproj -c Release
 ```
 
 The build places `klCustom.exe` and its bundled Start menu component in `artifacts/klCustom/` by default.
+
+To package both release downloads, run `Build-Release.ps1` with `-NativeDllPath`, `-SevenZipPath`, and a new `-OutputDirectory`. Use the native DLL from the standalone build.
 
 Add `-SigningCertificateThumbprint` with your code-signing certificate’s thumbprint to sign the EXE and both DLLs. Use `-TimestampServer` to timestamp the signatures. Self-signed certificates require `-AllowSelfSigned`.
 

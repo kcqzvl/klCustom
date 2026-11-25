@@ -5,12 +5,13 @@ param(
     [ValidatePattern('^[0-9a-fA-F]{40}$')]
     [string]$CertificateThumbprint,
     [uri]$TimestampServer,
-    [switch]$AllowSelfSigned
+    [switch]$AllowSelfSigned,
+    [string[]]$BinaryNames = @('klCustom.exe', 'klCustom.dll', 'kzlStartMenuHost5.dll')
 )
 
 $ErrorActionPreference = 'Stop'
 $release = (Resolve-Path -LiteralPath $ReleaseDirectory).Path
-$binaries = foreach ($name in 'klCustom.exe', 'klCustom.dll', 'kzlStartMenuHost5.dll') {
+$binaries = foreach ($name in $BinaryNames) {
     $file = Get-Item -LiteralPath (Join-Path $release $name)
     if ($file.PSIsContainer) { throw "Expected a binary file at $($file.FullName)" }
     $file.FullName

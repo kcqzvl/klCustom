@@ -8,8 +8,10 @@ klCustom 是一款独立的 Windows x64 工具，用于自定义系统开始菜�
 
 ## 开始使用
 
-1. 下载 Windows x64 ZIP，将所有文件解压到当前用户可写的目录。[GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
-2. 运行 `klCustom.exe`。自包含构建已附带启动工具箱所需的运行库。
+- **7z 解压版**。解压全部文件后运行 `klCustom.exe`。压缩包已包含 .NET 10 桌面运行库。
+- **EXE 下载器**。选择保存目录，并选择是否从微软下载 x64 .NET 10 桌面运行库安装程序。下载器会解包工具箱，并在勾选时把安装程序保存到同一文件夹。
+
+[GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
 
 ## 自定义开始菜单
 
@@ -40,6 +42,8 @@ dotnet run --project tests/RuleChecks.csproj -c Release
 ```
 
 构建后，`klCustom.exe` 和随附的开始菜单组件默认位于 `artifacts/klCustom/`。
+
+使用 `Build-Release.ps1` 打包两种发布文件。通过 `-NativeDllPath` 指定上一步生成的原生 DLL，通过 `-SevenZipPath` 指定 7-Zip，并通过 `-OutputDirectory` 指定一个新目录。
 
 构建时可用 `-SigningCertificateThumbprint` 指定代码签名证书的指纹，为 EXE 和两个 DLL 签名。用 `-TimestampServer` 为签名添加时间戳。使用自签名证书时需加上 `-AllowSelfSigned`。
 

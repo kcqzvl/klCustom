@@ -246,8 +246,6 @@ public partial class MainWindow : Window
         LanguageTitle.Text = L("language");
         LanguageDescription.Text = L("languageDescription");
         AboutTitle.Text = L("about");
-        AuthorLabel.Text = L("author");
-        RepositoryLabel.Text = L("repository");
         VersionLabel.Text = L("version");
         UpdateRuntimeStatus();
         LoadRegions(selectedId);
@@ -489,6 +487,8 @@ public partial class MainWindow : Window
     private void AuthorLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl");
 
     private void RepositoryLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl/klCustom");
+
+    private void BilibiliLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://space.bilibili.com/3546783122721085");
 
     private void RefreshRuntimeStatus()
     {
