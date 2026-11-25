@@ -145,6 +145,33 @@ internal sealed class StyleBrushes(Color[] wallpaper)
 
 internal static class WallpaperPalette
 {
+    internal static string? DesktopPath() =>
+        Registry.GetValue(@"HKEY_CURRENT_USER\Control Panel\Desktop", "WallPaper", null) as string;
+
+    internal static BitmapImage? LoadImage(string? path, int decodeWidth)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return null;
+
+        try
+        {
+            using var file = File.OpenRead(path);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.StreamSource = file;
+            image.DecodePixelWidth = decodeWidth;
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException
+            or NotSupportedException or ArgumentException or System.Runtime.InteropServices.COMException)
+        {
+            return null;
+        }
+    }
+
     internal static Color[] Read()
     {
         int systemTheme = (int?)Registry.GetValue(
@@ -153,16 +180,9 @@ internal static class WallpaperPalette
         var neutral = systemTheme == 0 ? Color.FromRgb(33, 37, 45) : Color.FromRgb(238, 242, 248);
         try
         {
-            string? path = Registry.GetValue(@"HKEY_CURRENT_USER\Control Panel\Desktop", "WallPaper", null) as string;
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            var image = LoadImage(DesktopPath(), 48);
+            if (image is null)
                 return FromAccent(neutral);
-
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.UriSource = new Uri(path, UriKind.Absolute);
-            image.DecodePixelWidth = 48;
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.EndInit();
             var source = new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
             int stride = source.PixelWidth * 4;
             var pixels = new byte[stride * source.PixelHeight];

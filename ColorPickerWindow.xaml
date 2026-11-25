@@ -1,0 +1,89 @@
+<Window x:Class="StartStyleToolbox.ColorPickerWindow" x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="Transparent" Foreground="{DynamicResource Ink}"
+        FontFamily="Segoe UI Variable Text, Microsoft YaHei UI" FontSize="14"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
+    <Grid ClipToBounds="True">
+        <Image x:Name="WallpaperLayer" Stretch="UniformToFill" Margin="-64" IsHitTestVisible="False">
+            <Image.Effect><BlurEffect x:Name="WallpaperBlur" KernelType="Gaussian"/></Image.Effect>
+        </Image>
+        <Border x:Name="Backdrop" Background="{DynamicResource DialogSurface}" IsHitTestVisible="False"/>
+        <Grid Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="220"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <Grid Height="290">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="22"/>
+                    </Grid.ColumnDefinitions>
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1"/>
+                    <Grid x:Name="ColorPlane" Background="Transparent" Focusable="True" Cursor="Cross"
+                          MouseLeftButtonDown="Plane_Pressed" MouseMove="Plane_Moved" MouseLeftButtonUp="Plane_Released"
+                          KeyDown="Plane_KeyDown" SizeChanged="Plane_SizeChanged">
+                        <Border x:Name="HueFill" IsHitTestVisible="False"/>
+                        <Border IsHitTestVisible="False">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="White" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <Border IsHitTestVisible="False">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#00000000" Offset="0"/><GradientStop Color="Black" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <Canvas IsHitTestVisible="False">
+                            <Grid x:Name="ColorMarker" Width="14" Height="14">
+                                <Ellipse Stroke="Black" StrokeThickness="2"/>
+                                <Ellipse Stroke="White" StrokeThickness="1.5" Margin="1.5"/>
+                            </Grid>
+                        </Canvas>
+                    </Grid>
+                    <Grid Grid.Column="2" x:Name="HuePlane" Focusable="True" Cursor="Cross"
+                          MouseLeftButtonDown="Plane_Pressed" MouseMove="Plane_Moved" MouseLeftButtonUp="Plane_Released"
+                          KeyDown="Plane_KeyDown" SizeChanged="Plane_SizeChanged">
+                        <Grid.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#FFFF0000" Offset="0"/><GradientStop Color="#FFFF00FF" Offset="0.166667"/>
+                                <GradientStop Color="#FF0000FF" Offset="0.333333"/><GradientStop Color="#FF00FFFF" Offset="0.5"/>
+                                <GradientStop Color="#FF00FF00" Offset="0.666667"/><GradientStop Color="#FFFFFF00" Offset="0.833333"/>
+                                <GradientStop Color="#FFFF0000" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Grid.Background>
+                        <Canvas IsHitTestVisible="False">
+                            <Border x:Name="HueMarker" Width="22" Height="4" Background="White" BorderBrush="Black" BorderThickness="1"/>
+                        </Canvas>
+                    </Grid>
+                </Grid>
+                <UniformGrid Columns="2" Margin="0,12,0,0">
+                    <StackPanel Margin="0,0,6,0">
+                        <TextBlock x:Name="OriginalLabel" Foreground="{DynamicResource Ink}" Margin="0,0,0,5"/>
+                        <Border x:Name="OriginalGrid" Height="40"><Border x:Name="OriginalColor"/></Border>
+                    </StackPanel>
+                    <StackPanel Margin="6,0,0,0">
+                        <TextBlock x:Name="NewLabel" Foreground="{DynamicResource Ink}" Margin="0,0,0,5"/>
+                        <Border x:Name="NewGrid" Height="40"><Border x:Name="NewColor"/></Border>
+                    </StackPanel>
+                </UniformGrid>
+            </StackPanel>
+            <DockPanel Grid.Column="2" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                    <Button x:Name="ConfirmButton" IsDefault="True" Click="Confirm_Click" MinWidth="83" Margin="0,0,8,0"
+                            Background="{DynamicResource Primary}" Foreground="{DynamicResource PrimaryInk}" BorderBrush="{DynamicResource Primary}"/>
+                    <Button x:Name="CancelButton" IsCancel="True" MinWidth="83"/>
+                </StackPanel>
+                <StackPanel x:Name="ColorFields" VerticalAlignment="Top"/>
+            </DockPanel>
+        </Grid>
+    </Grid>
+</Window>

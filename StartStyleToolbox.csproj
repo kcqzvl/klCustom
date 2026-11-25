@@ -5,11 +5,10 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <AssemblyName>kzlSystemCustomize</AssemblyName>
     <Product>kzlSystemCustomize</Product>
-    <Version>0.1.1-beta</Version>
+    <Version>0.1.2-beta</Version>
     <StartupObject>StartStyleToolbox.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
