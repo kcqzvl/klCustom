@@ -10,14 +10,14 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 
 1. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 2. Run `klCustom.exe`. Self-contained builds include the runtime needed to open the toolbox.
-3. To install the system-wide .NET 10 Desktop Runtime, select **Install .NET 10** in the title bar. If it is already installed, the title bar shows **Installed**.
+3. To install the system-wide .NET 10 Desktop Runtime, select **Install .NET 10** in the title bar. If it is already installed, the title bar shows **Runtime dependency installed**.
 
 ## Customizing the Start menu
 
 - Select a region and preview its style before applying it. Materials include solid color, transparency, acrylic, blur, and a Mica approximation.
 - Enable main panel customization in the editor before applying a style to its background.
 - On systems with a right companion panel, its acrylic can use independent settings or follow the main menu background. Shared mode samples a narrow strip near the divider while Start is open and keeps the sample in memory.
-- Use the restore controls to revert the selected region or all modified regions. The app saves drafts locally. Applied styles last until the Start menu host restarts.
+- Restore a single region from its editor, or use **Restore all** in Settings to restore all regions and clear drafts. The app saves drafts locally. Applied styles last until the Start menu host restarts.
 - In Settings, choose a light or dark theme, or follow the Windows app mode. The editor uses the Windows accent color and supports Simplified Chinese, Traditional Chinese (Hong Kong), English, and Japanese.
 
 ## Windows compatibility

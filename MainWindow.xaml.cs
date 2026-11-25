@@ -201,6 +201,8 @@ public partial class MainWindow : Window
             System.Windows.Automation.AutomationProperties.SetName(button, (string)button.ToolTip);
         SettingsButtonLabel.Text = L("settings");
         RestoreAllLabel.Text = L("restoreAll");
+        RestoreAllTitle.Text = L("startMenu");
+        RestoreAllDescription.Text = L("restoreAllDescription");
         BreadcrumbLabel.Text = L("breadcrumb");
         MaterialLabel.Text = L("material");
         foreach (var button in materialButtons)
@@ -947,7 +949,7 @@ public partial class MainWindow : Window
         profile.Regions.Clear();
         QueueSave();
         LoadEditor();
-        StatusText.Text = "已恢复全部区域";
+        StatusText.Text = L("restoreAllDone");
     }
 
     private async Task<bool> CommitAsync(Dictionary<string, StyleOptions> settings)

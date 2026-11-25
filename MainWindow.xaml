@@ -511,7 +511,6 @@
                         </StackPanel>
                     </Button>
                     <Grid x:Name="StartMenuOptionsPanel">
-                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <ListBox x:Name="Regions" SelectionChanged="RegionChanged" SelectedValuePath="Id" BorderThickness="0" Background="Transparent"
                                  FocusVisualStyle="{x:Null}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="开始菜单区域">
@@ -525,12 +524,6 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                        <Button Grid.Row="1" Style="{StaticResource SidebarButton}" Click="RestoreAll_Click" x:Name="RestoreAllButton" Margin="0,10,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource Glyph}" Text="&#xE777;" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="RestoreAllLabel" Text="全部恢复"/>
-                            </StackPanel>
-                        </Button>
                     </Grid>
                 </DockPanel>
             </Border>
@@ -589,6 +582,22 @@
                     <TextBlock x:Name="SettingsBreadcrumbLabel" Text="系统  ›  设置" Style="{StaticResource Secondary}" Margin="0,0,0,8"/>
                     <TextBlock x:Name="SettingsTitle" Text="设置" FontSize="28" FontWeight="SemiBold"/>
                     <TextBlock x:Name="SettingsSubtitle" Text="主题、语言和项目链接" Style="{StaticResource Secondary}" Margin="0,5,0,18"/>
+                    <Border Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="22,16" Margin="0,0,0,14">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="RestoreAllButton" DockPanel.Dock="Right" Click="RestoreAll_Click"
+                                    VerticalAlignment="Center" Margin="16,0,0,0" AutomationProperties.LabeledBy="{Binding ElementName=RestoreAllLabel}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE777;" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="RestoreAllLabel" Text="全部恢复"/>
+                                </StackPanel>
+                            </Button>
+                            <StackPanel>
+                                <TextBlock x:Name="RestoreAllTitle" Text="开始菜单" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="RestoreAllDescription" Text="还原各区域的样式并清除编辑草稿" TextWrapping="Wrap"
+                                           Style="{StaticResource Secondary}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
                     <Border Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="22,20" Margin="0,0,0,14">
                         <StackPanel>
                             <TextBlock x:Name="ThemeTitle" Text="应用主题" FontSize="16" FontWeight="SemiBold"/>
