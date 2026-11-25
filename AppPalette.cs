@@ -12,6 +12,7 @@ namespace StartStyleToolbox;
 internal static class AppPalette
 {
     private const uint UseImmersiveDarkMode = 20;
+    private const uint LegacyImmersiveDarkMode = 19;
     private const uint WindowCornerPreference = 33;
     private const uint BorderColor = 34;
     private const uint CaptionColor = 35;
@@ -144,10 +145,19 @@ internal static class AppPalette
     {
         IntPtr handle = source.Handle;
         int dark = light ? 0 : 1;
-        _ = DwmSetWindowAttribute(handle, UseImmersiveDarkMode, in dark, sizeof(int));
+        var captionColor = light ? Color.FromRgb(243, 243, 243) : Color.FromRgb(31, 31, 31);
+        if (DwmSetWindowAttribute(handle, UseImmersiveDarkMode, in dark, sizeof(int)) != 0)
+            _ = DwmSetWindowAttribute(handle, LegacyImmersiveDarkMode, in dark, sizeof(int));
+        if (NativeStartMenu.UsesWindows10Layout)
+        {
+            // The main window and picker supply their own wallpaper-backed material on Windows 10.
+            if (source.CompositionTarget is { } legacyTarget)
+                legacyTarget.BackgroundColor = captionColor;
+            return false;
+        }
+
         int border = DwmColorNone;
         _ = DwmSetWindowAttribute(handle, BorderColor, in border, sizeof(int));
-        var captionColor = light ? Color.FromRgb(243, 243, 243) : Color.FromRgb(31, 31, 31);
         var textColor = light ? Color.FromRgb(31, 31, 31) : Color.FromRgb(245, 245, 245);
         bool wantsAcrylic = transparency && material == Material.Acrylic;
         int backdrop = wantsAcrylic ? BackdropDesktopAcrylic : BackdropNone;

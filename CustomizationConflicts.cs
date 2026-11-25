@@ -12,12 +12,12 @@ internal static class CustomizationConflicts
     private const string Styler = "windows-11-start-menu-styler";
     private static readonly string[][] TargetNames =
     [
-        ["MainMenu", "AcrylicBorder", "AcrylicOverlay"],
-        ["StartMenuPinnedList", "PinnedList", "Root"],
+        ["MainMenu", "AcrylicBorder", "AcrylicOverlay", "BackgroundElement"],
+        ["StartMenuPinnedList", "PinnedList", "Root", "TileGridView"],
         ["RecommendedList"],
-        ["AllAppsGrid", "AppsList"],
+        ["AllAppsGrid", "AppsList", "AllAppsGridListView"],
         ["StartMenuSearchBox", "BorderElement", "SearchBoxToggleButton"],
-        ["NavPanePlaceholder"],
+        ["NavPanePlaceholder", "NavigationPaneGrid"],
         ["CompanionRoot", "RightCompanion", "AcrylicBorder", "AcrylicOverlay"],
     ];
 

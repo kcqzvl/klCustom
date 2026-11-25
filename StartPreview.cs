@@ -17,12 +17,13 @@ internal sealed class StartPreview : Border
     private static readonly Brush Text = new SolidColorBrush(Color.FromRgb(248, 250, 255));
     private static readonly Brush SoftText = new SolidColorBrush(Color.FromRgb(210, 221, 243));
     private static readonly Brush Hairline = new SolidColorBrush(Color.FromArgb(52, 255, 255, 255));
+    private static readonly FontFamily IconFont = new("Segoe Fluent Icons, Segoe MDL2 Assets");
     private readonly StyleBrushes brushes;
     private readonly Func<Region, StyleOptions> options;
     private readonly Color backdrop;
     private readonly string selected;
 
-    internal StartPreview(StyleBrushes brushes, bool light, Func<Region, StyleOptions> options, string selected)
+    internal StartPreview(StyleBrushes brushes, bool light, Func<Region, StyleOptions> options, string selected, bool windows10)
     {
         this.brushes = brushes;
         this.options = options;
@@ -35,8 +36,15 @@ internal sealed class StartPreview : Border
         var scene = new Canvas { ClipToBounds = true };
         Child = scene;
         DrawDesktop(scene, light, BackdropBlur());
-        Place(scene, MainPanel(), 22, 22);
-        Place(scene, CompanionPanel(), 420, 22);
+        if (windows10)
+        {
+            Place(scene, Windows10Panel(), 22, 22);
+        }
+        else
+        {
+            Place(scene, MainPanel(), 22, 22);
+            Place(scene, CompanionPanel(), 420, 22);
+        }
     }
 
     private double BackdropBlur()
@@ -68,13 +76,43 @@ internal sealed class StartPreview : Border
             Place(page, Card(396 - row * 42, 5, light ? "#A3ADBA" : "#5A6779", 2), 32, 451 + row * 12);
     }
 
+    private Border Windows10Panel()
+    {
+        var body = new Canvas { ClipToBounds = true };
+        var rail = new Canvas();
+        Place(rail, Label("\uE700", 15, Text), 17, 14);
+        Place(rail, Label("\uE77B", 15, Text), 17, 322);
+        Place(rail, Label("\uE713", 15, Text), 17, 365);
+        Place(rail, Label("\uE7E8", 15, Text), 17, 408);
+        foreach (TextBlock icon in rail.Children)
+            icon.FontFamily = IconFont;
+        Place(body, Surface("footer", 50, 448, rail), 5, 5);
+
+        var apps = new Canvas();
+        string[] names = ["Edge", "文件资源管理器", "画图", "计算器", "设置", "照片", "邮件", "日历"];
+        for (int index = 0; index < names.Length; index++)
+        {
+            double top = 16 + index * 37;
+            Place(apps, Tile(index, 22), 10, top);
+            Place(apps, Label(names[index], 12, Text), 43, top + 3);
+        }
+        Place(body, Surface("apps", 172, 448, apps), 61, 5);
+
+        var tiles = new Canvas();
+        Place(tiles, Label("固定磁贴", 13, Text, true), 12, 16);
+        for (int index = 0; index < 9; index++)
+            Place(tiles, Tile(index, 80), 12 + index % 3 * 89, 47 + index / 3 * 89);
+        Place(body, Surface("pinned", 302, 448, tiles), 241, 5);
+        return Surface("main", 556, 460, body, true);
+    }
+
     private Border MainPanel()
     {
         var body = new Canvas { ClipToBounds = true };
         var panel = Surface("main", 392, 460, body, true);
         var search = new DockPanel { Margin = new Thickness(12, 0, 8, 0), LastChildFill = true };
         var icon = Label("\uE721", 13, SoftText);
-        icon.FontFamily = new FontFamily("Segoe Fluent Icons");
+        icon.FontFamily = IconFont;
         icon.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(icon, Dock.Left);
         search.Children.Add(icon);
@@ -121,7 +159,7 @@ internal sealed class StartPreview : Border
         Place(footer, new Ellipse { Width = 22, Height = 22, Fill = Paint("#C5D5E8") }, 20, 9);
         Place(footer, Label("账户", 11, Text), 51, 12);
         var power = Label("\uE7E8", 16, Text);
-        power.FontFamily = new FontFamily("Segoe Fluent Icons");
+        power.FontFamily = IconFont;
         Place(footer, power, 346, 11);
         Place(body, Surface("footer", 388, 41, footer), 1, 416);
         return panel;
@@ -147,7 +185,7 @@ internal sealed class StartPreview : Border
         for (int i = 0; i < 3; i++)
         {
             var icon = Label(new[] { "\uE8BD", "\uE717", "\uE72D" }[i], 13, SoftText);
-            icon.FontFamily = new FontFamily("Segoe Fluent Icons");
+            icon.FontFamily = IconFont;
             Place(body, icon, 28, 167 + i * 31);
             Place(body, Label(new[] { "消息", "通话", "发送文件" }[i], 11, Text), 52, 167 + i * 31);
         }

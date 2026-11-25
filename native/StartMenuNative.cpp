@@ -166,7 +166,7 @@ namespace
                 return nullptr;
             if (auto element = node.try_as<controls::Border>(); element && element.Name() == L"AcrylicBorder")
             {
-                if (Named(Parent(element), L"MainMenu"))
+                if (FindTarget(element).region == 0)
                     return element;
             }
             for (int i = 0, count = media::VisualTreeHelper::GetChildrenCount(node); i < count; ++i)

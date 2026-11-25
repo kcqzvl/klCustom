@@ -71,8 +71,6 @@ public partial class MainWindow : Window
         CreateEditor();
         CreateThemeMaterials();
         LanguageCombo.ItemsSource = Localization.SupportedLanguages.Select(Localization.LanguageName).ToArray();
-        Regions.ItemsSource = LocalizedRegions();
-        Regions.SelectedItem = LocalizedRegions().First(region => region.Id == "companion");
         ApplyLanguage();
         updating = false;
         RefreshCompatibility();
@@ -178,6 +176,7 @@ public partial class MainWindow : Window
     }
 
     private Region[] LocalizedRegions() => Region.All
+        .Where(region => NativeStartMenu.HasRegion(region.Id, NativeStartMenu.UsesWindows10Layout))
         .Select(region => region with { Label = Localization.RegionLabel(profile.Language, region.Id) }).ToArray();
 
     private string L(string key) => Localization.Get(profile.Language, key);
@@ -234,9 +233,10 @@ public partial class MainWindow : Window
         AuthorLabel.Text = L("author");
         RepositoryLabel.Text = L("repository");
         VersionLabel.Text = L("version");
-        Regions.ItemsSource = LocalizedRegions();
-        if (selectedId is not null)
-            Regions.SelectedItem = LocalizedRegions().FirstOrDefault(region => region.Id == selectedId);
+        var regions = LocalizedRegions();
+        Regions.ItemsSource = regions;
+        Regions.SelectedItem = regions.FirstOrDefault(region => region.Id ==
+            (selectedId ?? (NativeStartMenu.UsesWindows10Layout ? "pinned" : "companion"))) ?? regions[0];
         LanguageCombo.SelectedIndex = Array.IndexOf(Localization.SupportedLanguages, profile.Language);
         ApplySettingsState();
         updating = false;
@@ -701,10 +701,11 @@ public partial class MainWindow : Window
             bool systemDarkFallback = !theme.Light && !active;
             bool transparency = persist && !systemDarkFallback && AppPalette.SystemUsesTransparency();
             bool acrylic = AppPalette.ApplyWindowAppearance(source, theme.Light, theme.Material, transparency);
-            ImageSource? backdrop = transparency && theme.Material == Material.Blur ? wallpaper : null;
+            ImageSource? backdrop = transparency && (theme.Material == Material.Blur ||
+                theme.Material == Material.Acrylic && !acrylic) ? wallpaper : null;
             var colors = AppPalette.Create(theme.Light, theme.Accent, theme.Material, theme.Tint,
                 acrylic || backdrop is not null, systemDarkFallback);
-            picker.SetBackdrop(acrylic, backdrop, theme.Tint.BlurRadius, colors);
+            picker.SetBackdrop(acrylic, backdrop, theme.Material == Material.Acrylic ? 36 : theme.Tint.BlurRadius, colors);
         }
     }
 
@@ -750,7 +751,7 @@ public partial class MainWindow : Window
     private void RefreshPreview()
     {
         bool light = LightScene.IsChecked == true;
-        PreviewContent.Content = new StartPreview(brushes, light, Options, SelectedRegion.Id);
+        PreviewContent.Content = new StartPreview(brushes, light, Options, SelectedRegion.Id, NativeStartMenu.UsesWindows10Layout);
     }
 
     private void RefreshCompatibility()
@@ -823,13 +824,13 @@ public partial class MainWindow : Window
         var source = SelectedRegion;
         var options = Options(source);
         var menu = CreateMenu(CopyButton);
-        foreach (var target in Region.All.Where(region => region.Id != source.Id && (region.Id != "main" || profile.MainEnabled)))
+        foreach (var target in LocalizedRegions().Where(region => region.Id != source.Id && (region.Id != "main" || profile.MainEnabled)))
         {
             var item = MenuOption(target.Label);
             item.Click += (_, _) =>
             {
                 profile.Regions[target.Id] = options;
-                Regions.SelectedItem = target;
+                Regions.SelectedValue = target.Id;
                 StatusText.Text = $"已复制到{target.Label}";
                 QueueSave();
             };

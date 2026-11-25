@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="kzl Custom" Width="1220" Height="765" MinWidth="980" MinHeight="690"
         WindowStartupLocation="CenterScreen" WindowStyle="None" Background="Transparent" Foreground="{DynamicResource Ink}"
-        FontFamily="Segoe UI Variable Text, Microsoft YaHei UI" FontSize="14"
+        FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI" FontSize="14"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="46" ResizeBorderThickness="6" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
@@ -18,7 +18,7 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style x:Key="Glyph" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="16"/>
         </Style>
         <DrawingBrush x:Key="AlphaGrid" TileMode="Tile" Viewport="0,0,12,12" ViewportUnits="Absolute"
@@ -127,7 +127,7 @@
             <Setter Property="Height" Value="38"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -501,7 +501,7 @@
                     </Button>
                     <Grid x:Name="StartMenuOptionsPanel">
                         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <ListBox x:Name="Regions" SelectionChanged="RegionChanged" BorderThickness="0" Background="Transparent"
+                        <ListBox x:Name="Regions" SelectionChanged="RegionChanged" SelectedValuePath="Id" BorderThickness="0" Background="Transparent"
                                  FocusVisualStyle="{x:Null}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="开始菜单区域">
                             <ListBox.ItemTemplate>

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         SizeToContent="WidthAndHeight" ResizeMode="NoResize" ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner" Background="Transparent" Foreground="{DynamicResource Ink}"
-        FontFamily="Segoe UI Variable Text, Microsoft YaHei UI" FontSize="14"
+        FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI" FontSize="14"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
     <Grid ClipToBounds="True">
         <Image x:Name="WallpaperLayer" Stretch="UniformToFill" Margin="-64" IsHitTestVisible="False">

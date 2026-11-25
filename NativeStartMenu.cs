@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -7,9 +8,10 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Win32;
+using Microsoft.Win32.SafeHandles;
 
 namespace StartStyleToolbox;
 
@@ -31,16 +33,59 @@ internal sealed class NativeStartMenu
     private readonly SemaphoreSlim commitLock = new(1, 1);
     private static string ComponentPath =>
         Path.Combine(Path.GetDirectoryName(typeof(NativeStartMenu).Assembly.Location)!, DllName);
+    private static readonly string HostPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+        @"SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe");
+
+    internal static bool UsesWindows10Layout => Environment.OSVersion.Version.Build < 22000;
+
+    internal static bool SupportsBuild(int build) => build is 19044 or 19045 or 22000 or 22621 or 22631
+        or 26100 or 26200 or 26300 or 28000;
+
+    internal static bool SupportsHostVersion(int build, Version hostVersion)
+    {
+        // The system host can report the legacy 6.2 prefix with a modern build number.
+        if (!SupportsBuild(build) || (hostVersion.Major, hostVersion.Minor) is not ((10, 0) or (6, 2)))
+            return false;
+
+        return hostVersion.Build == build || (build, hostVersion.Build) switch
+        {
+            (19044 or 19045, 19041) => true,
+            (22631, 22621) => true,
+            (26200 or 26300, 26100 or 26200) => true,
+            _ => false,
+        };
+    }
+
+    internal static bool HasRegion(string id, bool windows10) =>
+        !windows10 || id is "main" or "pinned" or "apps" or "footer";
 
     internal Compatibility GetCompatibility()
     {
-        using var host = GetHost();
+        using var host = GetSupportedHost(out string message);
+        return host is null ? new(false, false, message) : ReadCompatibility(host);
+    }
+
+    private static Process? GetSupportedHost(out string message)
+    {
+        int build = Environment.OSVersion.Version.Build;
+        if (RuntimeInformation.OSArchitecture != Architecture.X64 || !Environment.Is64BitProcess || !SupportsBuild(build))
+        {
+            message = $"此系统暂不支持开始菜单美化（{build}，{RuntimeInformation.OSArchitecture}）";
+            return null;
+        }
         if (!File.Exists(ComponentPath))
-            return new(false, false, "缺少原生开始菜单组件");
-        if (!IsSupportedHost(host))
-            return new(false, false, "当前只适配 Windows 11 25H2（26200.9974）");
-        var conflicts = CustomizationConflicts.Detect(host!);
-        using var map = OpenSession(host!.Id);
+        {
+            message = "缺少原生开始菜单组件";
+            return null;
+        }
+        return FindHost(build, out message);
+    }
+
+    private static Compatibility ReadCompatibility(Process host)
+    {
+        var conflicts = CustomizationConflicts.Detect(host);
+        using var map = OpenSession(host.Id);
         if (map is not null)
         {
             using var view = map.CreateViewAccessor(0, MapSize);
@@ -57,7 +102,7 @@ internal sealed class NativeStartMenu
 
     internal HashSet<string> AppliedRegions()
     {
-        using var host = GetHost();
+        using var host = FindHost(Environment.OSVersion.Version.Build, out _);
         if (host is null)
             return [];
         using var map = OpenSession(host.Id);
@@ -82,7 +127,7 @@ internal sealed class NativeStartMenu
             return await Task.Run(() => Commit(requested, mainEnabled));
         }
         catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException
-            or UnauthorizedAccessException or System.ComponentModel.Win32Exception or ExternalException)
+            or UnauthorizedAccessException or Win32Exception or ExternalException)
         {
             return new(false, error.Message);
         }
@@ -98,21 +143,21 @@ internal sealed class NativeStartMenu
         {
             _ = Region.Get(id);
             StyleBrushes.Validate(options);
+            if (!HasRegion(id, UsesWindows10Layout) && options.Material != Material.Original)
+                return new(false, "当前开始菜单没有此区域");
             if (id == "main" && !mainEnabled && options.Material != Material.Original)
                 return new(false, "请先启用主背景管理");
         }
 
-        var compatibility = GetCompatibility();
-        if (!compatibility.CanApply)
-            return new(false, compatibility.Message);
+        using var host = GetSupportedHost(out string message);
+        if (host is null)
+            return new(false, message);
+        var compatibility = ReadCompatibility(host);
         foreach (var (id, options) in requested)
             if (options.Material != Material.Original && compatibility.Conflict(id) is { } reason)
                 return new(false, reason);
-        using var host = GetHost();
-        if (!IsSupportedHost(host))
-            return new(false, "开始菜单宿主已变化，请重新检测");
 
-        using var mutex = new Mutex(false, SessionName(host!.Id, 2) + ".Updates");
+        using var mutex = new Mutex(false, SessionName(host.Id, 2) + ".Updates");
         try
         {
             if (!mutex.WaitOne(0))
@@ -285,28 +330,80 @@ internal sealed class NativeStartMenu
         catch (FileNotFoundException) { return null; }
     }
 
-    private static Process? GetHost()
+    private static Process? FindHost(int build, out string message)
     {
         using var current = Process.GetCurrentProcess();
+        int sessionId = current.SessionId;
         var candidates = Process.GetProcessesByName(HostName);
-        var host = candidates.FirstOrDefault(process => process.SessionId == current.SessionId);
-        foreach (var process in candidates)
-            if (process != host)
-                process.Dispose();
-        return host;
+        Process? host = null;
+        bool unreadable = false;
+        bool differentPath = false;
+        message = "请打开一次开始菜单以启动系统宿主";
+        try
+        {
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    if (candidate.SessionId != sessionId)
+                        continue;
+                    string? image = ReadProcessImage(candidate.Id);
+                    if (image is null)
+                        unreadable = true;
+                    else if (IsSystemHostPath(image))
+                    {
+                        var info = FileVersionInfo.GetVersionInfo(HostPath);
+                        var version = new Version(info.FileMajorPart, info.FileMinorPart, info.FileBuildPart, info.FilePrivatePart);
+                        if (!SupportsHostVersion(build, version))
+                        {
+                            message = $"此系统的开始菜单宿主版本尚未适配（{build} / {version}）";
+                            return null;
+                        }
+                        host = candidate;
+                        return host;
+                    }
+                    else
+                        differentPath = true;
+                }
+                catch (Exception error) when (error is InvalidOperationException or Win32Exception
+                    or IOException or UnauthorizedAccessException)
+                {
+                    unreadable = true;
+                }
+            }
+            if (unreadable)
+                message = "暂时无法读取开始菜单宿主，打开开始菜单后将自动重试";
+            else if (differentPath)
+                message = "开始菜单宿主路径与系统安装路径不一致";
+            return null;
+        }
+        finally
+        {
+            foreach (var candidate in candidates)
+                if (candidate != host)
+                    candidate.Dispose();
+        }
     }
 
-    private static bool IsSupportedHost(Process? host)
+    internal static bool IsSystemHostPath(string path)
     {
-        if (host is null || !Environment.Is64BitProcess)
-            return false;
-        using var machine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
-        using var version = machine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-        string expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-            @"SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe");
-        return version?.GetValue("CurrentBuild") as string == "26200" && version.GetValue("UBR") is 9974
-            && string.Equals(host.MainModule?.FileName, expected, StringComparison.OrdinalIgnoreCase)
-            && FileVersionInfo.GetVersionInfo(expected).FileVersion?.StartsWith("10.0.26100.9818", StringComparison.Ordinal) == true;
+        const string extendedPrefix = @"\\?\";
+        ReadOnlySpan<char> image = path.AsSpan();
+        if (image.StartsWith(extendedPrefix, StringComparison.Ordinal))
+            image = image[extendedPrefix.Length..];
+        return image.Equals(HostPath.AsSpan(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ReadProcessImage(int id)
+    {
+        const uint queryLimitedInformation = 0x1000;
+        using var process = OpenProcess(queryLimitedInformation, false, id);
+        if (process.IsInvalid)
+            return null;
+
+        var image = new StringBuilder(1024);
+        int length = image.Capacity;
+        return QueryFullProcessImageName(process, 0, image, ref length) ? image.ToString() : null;
     }
 
     private static int RegionMask(IEnumerable<string> ids)
@@ -378,6 +475,15 @@ internal sealed class NativeStartMenu
             NativeLibrary.Free(library);
         }
     }
+
+    [DllImport("kernel32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern SafeProcessHandle OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, int id);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool QueryFullProcessImageName(SafeProcessHandle process, uint flags, StringBuilder image, ref int length);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
