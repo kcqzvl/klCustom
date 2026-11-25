@@ -12,7 +12,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = Join-Path $PSScriptRoot 'klCustom.csproj'
-$version = ([xml](Get-Content -LiteralPath $project -Raw)).Project.PropertyGroup.Version
+$projectXml = [xml](Get-Content -LiteralPath $project -Raw)
+$version = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected release version: $version" }
 $native = Get-Item -LiteralPath $NativeDllPath
 if ($native.Name -ne 'kzlStartMenuHost5.dll') { throw 'Expected kzlStartMenuHost5.dll.' }
@@ -25,19 +26,14 @@ $sign = @{
 }
 if ($TimestampServer) { $sign.TimestampServer = $TimestampServer }
 
-function Publish-Application([string]$directory, [bool]$selfContained) {
-    $setting = $selfContained.ToString().ToLowerInvariant()
-    dotnet publish $project -c Release -r win-x64 --self-contained $setting -p:NuGetAudit=false -p:DebugType=None --disable-build-servers -p:UseSharedCompilation=false -o $directory
-    if ($LASTEXITCODE) { throw "Desktop publish failed ($LASTEXITCODE)." }
-    Copy-Item -LiteralPath $native.FullName,(Join-Path $PSScriptRoot 'README.md'),(Join-Path $PSScriptRoot 'README.zh-CN.md') -Destination $directory
-    if ($SigningCertificateThumbprint) {
-        & (Join-Path $PSScriptRoot 'Sign-Release.ps1') -ReleaseDirectory $directory @sign | Out-Host
-    }
+$light = Join-Path $output 'framework-dependent'
+dotnet publish $project -c Release -r win-x64 --no-self-contained -p:PortableRuntimeLayout=true -p:NuGetAudit=false -p:DebugType=None --disable-build-servers -p:UseSharedCompilation=false -o $light
+if ($LASTEXITCODE) { throw "Desktop publish failed ($LASTEXITCODE)." }
+Copy-Item -LiteralPath $native.FullName,(Join-Path $PSScriptRoot 'README.md'),(Join-Path $PSScriptRoot 'README.zh-CN.md') -Destination $light
+if ($SigningCertificateThumbprint) {
+    & (Join-Path $PSScriptRoot 'Sign-Release.ps1') -ReleaseDirectory $light @sign | Out-Host
 }
 
-$full = Join-Path $output 'self-contained'
-$light = Join-Path $output 'framework-dependent'
-Publish-Application $light $false
 $payload = Join-Path $output 'payload.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($light, $payload, [IO.Compression.CompressionLevel]::Optimal, $false)
 
@@ -65,11 +61,14 @@ if ($SigningCertificateThumbprint) {
     & (Join-Path $PSScriptRoot 'Sign-Release.ps1') -ReleaseDirectory $output -BinaryNames $downloader @sign | Out-Host
 }
 
-Publish-Application $full $true
+$layout = Join-Path $output 'archive-layout'
+$windowsPowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+& $windowsPowerShell -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $source 'Prepare-Archive.ps1') $downloaderPath $layout
+if ($LASTEXITCODE) { throw "Could not prepare the archive with its private runtime ($LASTEXITCODE)." }
 $archivePath = Join-Path $output "klCustom-$version-win-x64.7z"
-Push-Location -LiteralPath $full
+Push-Location -LiteralPath $layout
 try {
-    & $sevenZip a -t7z -mx=9 -m0=LZMA2 -md=128m -mfb=273 -mmt=2 -ms=on -bso0 $archivePath '*'
+    & $sevenZip a -t7z -mx=9 -m0=LZMA2 -md=128m -mfb=273 -mmt=2 -ms=on -bso0 $archivePath "klCustom-$version"
     if ($LASTEXITCODE) { throw "7z compression failed ($LASTEXITCODE)." }
     & $sevenZip t -bso0 $archivePath
     if ($LASTEXITCODE) { throw "7z verification failed ($LASTEXITCODE)." }

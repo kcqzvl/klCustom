@@ -102,27 +102,81 @@ namespace KlCustom.Downloader
                         .Replace("\"latest-release\"", "\"latestRelease\""));
 
                 var release = metadata.releases.FirstOrDefault(item => item.releaseVersion == metadata.latestRelease);
-                var file = release == null || release.desktop == null ? null :
-                    release.desktop.files.FirstOrDefault(item => item.rid == "win-x64" &&
-                        item.name == "windowsdesktop-runtime-win-x64.exe");
-                if (file == null || file.hash == null || file.hash.Length != 128)
-                    throw new IOException("微软的发布信息中找不到 x64 桌面运行库。");
+                Version version;
+                if (release == null || !Version.TryParse(release.releaseVersion, out version) || version.Major != 10)
+                    throw new IOException("微软的发布信息中找不到 .NET 10。");
 
-                var url = new Uri(file.url);
-                if (url.Scheme != Uri.UriSchemeHttps || url.Host != "builds.dotnet.microsoft.com" ||
-                    !url.AbsolutePath.StartsWith("/dotnet/WindowsDesktop/10.", StringComparison.Ordinal) ||
-                    !url.AbsolutePath.EndsWith("-win-x64.exe", StringComparison.Ordinal))
-                    throw new IOException("微软运行库的下载地址格式发生了变化。");
+                string runtime = Path.Combine(directory, ".net");
+                Directory.CreateDirectory(runtime);
+                using (var core = await DownloadZipAsync(client, release.runtime, "dotnet-runtime", version, runtime).ConfigureAwait(false))
+                    core.ExtractToDirectory(runtime);
+                using (var desktop = await DownloadZipAsync(client, release.desktop, "windowsdesktop-runtime", version, runtime).ConfigureAwait(false))
+                {
+                    string framework = string.Format("shared/Microsoft.WindowsDesktop.App/{0}/", version);
+                    var entries = desktop.Entries.Where(entry => entry.FullName.StartsWith(framework, StringComparison.Ordinal) &&
+                        entry.Name.Length > 0).ToArray();
+                    if (entries.Length == 0)
+                        throw new IOException("下载的压缩包中找不到桌面运行库。");
+                    foreach (var entry in entries)
+                    {
+                        string target = Path.GetFullPath(Path.Combine(runtime, entry.FullName));
+                        if (!target.StartsWith(runtime + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                            throw new IOException("桌面运行库中的文件路径无效。");
+                        Directory.CreateDirectory(Path.GetDirectoryName(target));
+                        entry.ExtractToFile(target);
+                    }
 
-                var bytes = await client.GetByteArrayAsync(url).ConfigureAwait(false);
+                    foreach (var name in new[] { "LICENSE.txt", "ThirdPartyNotices.txt" })
+                    {
+                        var notice = desktop.GetEntry(name);
+                        if (notice != null)
+                            notice.ExtractToFile(Path.Combine(runtime, "WindowsDesktop-" + name));
+                    }
+                }
+
+                if (!HasFramework(runtime) || !File.Exists(Path.Combine(runtime, "host", "fxr", version.ToString(), "hostfxr.dll")))
+                    throw new IOException("下载的 .NET 桌面运行库不完整。");
+            }
+        }
+
+        private static async Task<ZipArchive> DownloadZipAsync(HttpClient client, RuntimeComponent component,
+            string name, Version version, string directory)
+        {
+            var file = component == null ? null : component.files.FirstOrDefault(item =>
+                item.rid == "win-x64" && item.name == name + "-win-x64.zip");
+            if (file == null || file.hash == null || file.hash.Length != 128)
+                throw new IOException("微软的发布信息中找不到 x64 运行库压缩包。");
+
+            var url = new Uri(file.url);
+            string variant = name == "dotnet-runtime" ? "Runtime" : "WindowsDesktop";
+            string expectedPath = string.Format("/dotnet/{0}/{1}/{2}-{1}-win-x64.zip", variant, version, name);
+            if (url.Scheme != Uri.UriSchemeHttps || url.Host != "builds.dotnet.microsoft.com" ||
+                !string.Equals(url.AbsolutePath, expectedPath, StringComparison.Ordinal))
+                throw new IOException("微软运行库的下载地址格式发生了变化。");
+
+            var stream = new FileStream(Path.Combine(directory, name + ".zip"), FileMode.CreateNew,
+                FileAccess.ReadWrite, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            try
+            {
+                using (var response = await client.GetAsync(url).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    await response.Content.CopyToAsync(stream).ConfigureAwait(false);
+                }
+                stream.Position = 0;
                 using (var sha512 = SHA512.Create())
                 {
-                    var hash = BitConverter.ToString(sha512.ComputeHash(bytes)).Replace("-", "");
+                    var hash = BitConverter.ToString(sha512.ComputeHash(stream)).Replace("-", "");
                     if (!string.Equals(hash, file.hash, StringComparison.OrdinalIgnoreCase))
                         throw new IOException("运行库校验失败，请重新下载。");
                 }
-
-                File.WriteAllBytes(Path.Combine(directory, Path.GetFileName(url.AbsolutePath)), bytes);
+                stream.Position = 0;
+                return new ZipArchive(stream, ZipArchiveMode.Read);
+            }
+            catch
+            {
+                stream.Dispose();
+                throw;
             }
         }
 
@@ -135,10 +189,11 @@ namespace KlCustom.Downloader
         private sealed class Release
         {
             public string releaseVersion { get; set; }
-            public Desktop desktop { get; set; }
+            public RuntimeComponent runtime { get; set; }
+            public RuntimeComponent desktop { get; set; }
         }
 
-        private sealed class Desktop
+        private sealed class RuntimeComponent
         {
             public List<RuntimeFile> files { get; set; }
         }

@@ -8,8 +8,8 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 
 ## Getting started
 
-- **7z portable package**. Extract all files and run `klCustom.exe`. The archive includes the .NET 10 Desktop Runtime.
-- **EXE downloader**. Choose a destination and whether to download the official x64 .NET 10 Desktop Runtime installer. The downloader extracts the app and saves the installer alongside it when selected.
+- **7z portable package**. Extract the app folder and run `klCustom.exe`. The app loads its .NET 10 Desktop Runtime from the `.net` folder alongside the executable.
+- **EXE downloader**. Choose a destination and whether to download the official x64 .NET 10 Desktop Runtime. With the option selected, the app can run directly from the new folder, with its runtime in `.net`. With the option cleared, it uses the runtime installed in Windows.
 
 [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 

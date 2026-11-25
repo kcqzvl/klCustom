@@ -54,10 +54,10 @@ namespace KlCustom.Downloader
             Add(browse, 450, 85, 82, 30);
 
             bool installed = Package.HasDesktopRuntime();
-            includeRuntime.Text = "同时下载 .NET 10 桌面运行库安装程序（x64）";
+            includeRuntime.Text = "同时下载 .NET 10 桌面运行库（x64）";
             includeRuntime.Checked = !installed;
             Add(includeRuntime, 24, 130, 508, 24);
-            status.Text = installed ? "已检测到 .NET 10 桌面运行库。" : "首次运行工具箱需要安装 .NET 10 桌面运行库。";
+            status.Text = installed ? "已检测到 .NET 10 桌面运行库。" : "可勾选下载运行库，工具箱会直接使用随附的 .NET 10。";
             Add(status, 24, 164, 508, 42);
             progress.Visible = false;
             Add(progress, 24, 209, 508, 9);
@@ -109,7 +109,7 @@ namespace KlCustom.Downloader
             {
                 preparedFolder = await Package.PrepareAsync(selectedPath, downloadRuntime);
                 status.Text = downloadRuntime
-                    ? "已保存。首次使用请先运行同文件夹中的 .NET 10 安装程序，再打开 klCustom.exe。"
+                    ? "已保存。运行库在工具箱的 .net 文件夹中，可以直接运行 klCustom.exe。"
                     : "已保存。请打开文件夹并运行 klCustom.exe。";
             }
             catch (Exception error)

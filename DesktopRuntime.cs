@@ -13,6 +13,9 @@ internal static class DesktopRuntime
 
     internal static bool IsInstalled()
     {
+        if (HasRuntime(Path.Combine(AppContext.BaseDirectory, ".net")))
+            return true;
+
         using var localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
         using var registration = localMachine.OpenSubKey(@"SOFTWARE\dotnet\Setup\InstalledVersions\x64");
         if (registration?.GetValue("InstallLocation") is string registeredRoot && HasRuntime(registeredRoot))
