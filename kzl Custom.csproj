@@ -9,7 +9,7 @@
     <AssemblyName>kzl Custom</AssemblyName>
     <Product>kzl Custom</Product>
     <RootNamespace>StartStyleToolbox</RootNamespace>
-    <Version>0.2.4-beta</Version>
+    <Version>0.2.4</Version>
     <StartupObject>StartStyleToolbox.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
