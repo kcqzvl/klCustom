@@ -579,9 +579,8 @@
             </ScrollViewer>
             <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" FocusVisualStyle="{x:Null}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="28,24,28,28">
-                    <TextBlock x:Name="SettingsBreadcrumbLabel" Text="系统  ›  设置" Style="{StaticResource Secondary}" Margin="0,0,0,8"/>
                     <TextBlock x:Name="SettingsTitle" Text="设置" FontSize="28" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="SettingsSubtitle" Text="主题、语言和项目链接" Style="{StaticResource Secondary}" Margin="0,5,0,18"/>
+                    <TextBlock x:Name="SettingsSubtitle" Text="主题、语言和项目链接" Style="{StaticResource Secondary}" Margin="0,4,0,16"/>
                     <Border Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="22,16" Margin="0,0,0,14">
                         <DockPanel LastChildFill="True">
                             <Button x:Name="RestoreAllButton" DockPanel.Dock="Right" Click="RestoreAll_Click"

@@ -217,7 +217,6 @@ public partial class MainWindow : Window
         CopyButton.Content = L("copy");
         RestoreButton.Content = L("restore");
         ApplyButton.Content = L("apply");
-        SettingsBreadcrumbLabel.Text = $"{L("system")}  ›  {L("settingsTitle")}";
         SettingsTitle.Text = L("settingsTitle");
         SettingsSubtitle.Text = L("settingsHint");
         ThemeTitle.Text = L("theme");
