@@ -23,7 +23,8 @@ internal sealed class StartPreview : Border
     private readonly Color backdrop;
     private readonly string selected;
 
-    internal StartPreview(StyleBrushes brushes, bool light, Func<Region, StyleOptions> options, string selected, bool windows10)
+    internal StartPreview(StyleBrushes brushes, bool light, Func<Region, StyleOptions> options, string selected,
+        bool windows10, bool showCompanionPanel)
     {
         this.brushes = brushes;
         this.options = options;
@@ -42,8 +43,10 @@ internal sealed class StartPreview : Border
         }
         else
         {
-            Place(scene, MainPanel(), 22, 22);
-            Place(scene, CompanionPanel(), 420, 22);
+            var main = MainPanel();
+            Place(scene, main, showCompanionPanel ? 22 : (Width - main.Width) / 2, 22);
+            if (showCompanionPanel)
+                Place(scene, CompanionPanel(), 420, 22);
         }
     }
 

@@ -14,14 +14,17 @@ internal enum Material { Original, Solid, Transparent, Acrylic, Blur, Mica }
 
 internal sealed record StyleOptions(
     Material Material = Material.Original,
-    string Color = "#CC2341CD",
-    int Tint = 45,
+    string Color = StyleOptions.DefaultColor,
+    int Tint = 50,
     int Luminosity = 50,
     int Blur = 28,
     int Opacity = 100,
-    bool ShareMainBackdrop = false)
+    bool ShareMainBackdrop = false,
+    int TransparentTint = 0,
+    int TransparentLuminosity = 0)
 {
-    internal static readonly StyleOptions MistyBlue = new(Material.Acrylic);
+    internal const string DefaultColor = "#FF0066FF";
+    internal static readonly StyleOptions DefaultDraft = new(TransparentTint: 50, TransparentLuminosity: 50);
 }
 
 internal sealed record Region(string Id, string Label, string Icon)
@@ -34,7 +37,7 @@ internal sealed record Region(string Id, string Label, string Icon)
         new("apps", "所有应用", "\uE71D"),
         new("search", "搜索框", "\uE721"),
         new("footer", "账户和电源栏", "\uE7E8"),
-        new("companion", "右侧伴侣面板", "\uE8EA"),
+        new("companion", "小组件面板", "\uE8EA"),
     ];
 
     internal static Region Get(string id) => All.FirstOrDefault(item => item.Id == id)
@@ -91,7 +94,8 @@ internal sealed class StyleBrushes(Color[] wallpaper)
         _ = ParseColor(options.Color);
         if (!Enum.IsDefined(options.Material) || options.Tint is < 0 or > 100
             || options.Luminosity is < 0 or > 100 || options.Blur is < 0 or > 64
-            || options.Opacity is < 0 or > 100)
+            || options.Opacity is < 0 or > 100 || options.TransparentTint is < 0 or > 100
+            || options.TransparentLuminosity is < 0 or > 100)
             throw new InvalidOperationException("材质参数超出范围。");
     }
 
@@ -101,7 +105,7 @@ internal sealed class StyleBrushes(Color[] wallpaper)
         switch (options.Material)
         {
             case Material.Transparent:
-                return Brushes.Transparent;
+                return new SolidColorBrush(TransparentColor(options, color));
             case Material.Solid:
                 return new SolidColorBrush(color);
             case Material.Mica:
@@ -133,6 +137,21 @@ internal sealed class StyleBrushes(Color[] wallpaper)
     {
         var tint = ParseColor(options.Color);
         return wallpaper.Select(color => Mix(color, tint, options.Tint / 100.0 * tint.A / 255.0)).ToArray();
+    }
+
+    internal static Color TransparentColor(StyleOptions options, Color tint)
+    {
+        double alpha = tint.A / 255.0;
+        double tintWeight = alpha * options.TransparentTint / 100.0;
+        double luminosityWeight = alpha * options.TransparentLuminosity / 100.0 * 0.25;
+        double opacity = tintWeight + luminosityWeight * (1 - tintWeight);
+        if (opacity == 0)
+            return Colors.Transparent;
+
+        byte gray = (byte)Math.Round(0.2126 * tint.R + 0.7152 * tint.G + 0.0722 * tint.B);
+        var color = Mix(Color.FromRgb(gray, gray, gray), tint, tintWeight / opacity);
+        color.A = (byte)Math.Round(opacity * 255);
+        return color;
     }
 
     internal static Color Mix(Color background, Color tint, double amount)

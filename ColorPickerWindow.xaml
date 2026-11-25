@@ -7,7 +7,7 @@
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
     <Grid ClipToBounds="True">
         <Image x:Name="WallpaperLayer" Stretch="UniformToFill" Margin="-64" IsHitTestVisible="False">
-            <Image.Effect><BlurEffect x:Name="WallpaperBlur" KernelType="Gaussian"/></Image.Effect>
+            <Image.Effect><BlurEffect Radius="36" KernelType="Gaussian"/></Image.Effect>
         </Image>
         <Border x:Name="Backdrop" Background="{DynamicResource DialogSurface}" IsHitTestVisible="False"/>
         <Grid Margin="20">

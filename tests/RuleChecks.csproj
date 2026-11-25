@@ -9,5 +9,7 @@
     <Compile Include="../StartStyles.cs" Link="StartStyles.cs" />
     <Compile Include="../NativeStartMenu.cs" Link="NativeStartMenu.cs" />
     <Compile Include="../CustomizationConflicts.cs" Link="CustomizationConflicts.cs" />
+    <Compile Include="../Profile.cs" Link="Profile.cs" />
+    <Compile Include="../Localization.cs" Link="Localization.cs" />
   </ItemGroup>
 </Project>

@@ -66,7 +66,7 @@ internal static class AppPalette
             : Colors.Black;
 
         var baseColor = Base("#F3F3F3", "#161C2D");
-        var tintColor = StyleBrushes.ParseColor(tint.Color);
+        var tintColor = tint.EffectiveColor();
         byte gray = (byte)Math.Round(0.2126 * tintColor.R + 0.7152 * tintColor.G + 0.0722 * tintColor.B);
         var neutral = StyleBrushes.Mix(baseColor, Color.FromRgb(gray, gray, gray), 0.22);
         double tintWeight = tint.Tint / 100.0 * tintColor.A / 255.0;
@@ -79,7 +79,10 @@ internal static class AppPalette
         double luminosityWeight = tint.Luminosity / 100.0 * luminosityScale;
         Color CanvasColor(Color foundation)
         {
-            double foundationOpacity = material == Material.Blur && hasBackdrop ? (light ? 0.52 : 0.30) : 0;
+            // DWM sets the blur radius. Blend its backdrop with the theme surface to adjust the effect strength.
+            double foundationOpacity = material == Material.Blur && hasBackdrop
+                ? 1 - (light ? 0.65 : 0.82) * Math.Sqrt(tint.BlurRadius / 64.0)
+                : 0;
             double neutralOpacity = luminosityWeight + foundationOpacity * (1 - luminosityWeight);
             double opacity = tintWeight + neutralOpacity * (1 - tintWeight);
             if (!hasBackdrop)
@@ -150,7 +153,7 @@ internal static class AppPalette
             _ = DwmSetWindowAttribute(handle, LegacyImmersiveDarkMode, in dark, sizeof(int));
         if (NativeStartMenu.UsesWindows10Layout)
         {
-            // The main window and picker supply their own wallpaper-backed material on Windows 10.
+            // Only the acrylic fallback uses wallpaper on Windows 10.
             if (source.CompositionTarget is { } legacyTarget)
                 legacyTarget.BackgroundColor = captionColor;
             return false;
@@ -159,9 +162,9 @@ internal static class AppPalette
         int border = DwmColorNone;
         _ = DwmSetWindowAttribute(handle, BorderColor, in border, sizeof(int));
         var textColor = light ? Color.FromRgb(31, 31, 31) : Color.FromRgb(245, 245, 245);
-        bool wantsAcrylic = transparency && material == Material.Acrylic;
-        int backdrop = wantsAcrylic ? BackdropDesktopAcrylic : BackdropNone;
-        bool systemAcrylic = DwmSetWindowAttribute(handle, SystemBackdropType, in backdrop, sizeof(int)) == 0 && wantsAcrylic;
+        bool wantsBackdrop = transparency && material is Material.Acrylic or Material.Blur;
+        int backdrop = wantsBackdrop ? BackdropDesktopAcrylic : BackdropNone;
+        bool systemBackdrop = DwmSetWindowAttribute(handle, SystemBackdropType, in backdrop, sizeof(int)) == 0 && wantsBackdrop;
         bool hasBackdrop;
         if (chrome is not null)
         {
@@ -169,8 +172,8 @@ internal static class AppPalette
             _ = DwmSetWindowAttribute(handle, WindowCornerPreference, in round, sizeof(int));
             // Extend glass from the bottom across the client area while leaving the native top margin at zero.
             // A top glass margin can expose the system accent caption over the custom controls.
-            chrome.GlassFrameThickness = systemAcrylic ? new Thickness(0, 0, 0, SystemParameters.VirtualScreenHeight) : default;
-            hasBackdrop = systemAcrylic;
+            chrome.GlassFrameThickness = systemBackdrop ? new Thickness(0, 0, 0, SystemParameters.VirtualScreenHeight) : default;
+            hasBackdrop = systemBackdrop;
         }
         else
         {
@@ -178,8 +181,8 @@ internal static class AppPalette
             int text = ColorRef(textColor);
             _ = DwmSetWindowAttribute(handle, CaptionColor, in caption, sizeof(int));
             _ = DwmSetWindowAttribute(handle, TextColor, in text, sizeof(int));
-            var margins = systemAcrylic ? new Margins(-1, -1, -1, -1) : default;
-            hasBackdrop = DwmExtendFrameIntoClientArea(handle, in margins) == 0 && systemAcrylic;
+            var margins = systemBackdrop ? new Margins(-1, -1, -1, -1) : default;
+            hasBackdrop = DwmExtendFrameIntoClientArea(handle, in margins) == 0 && systemBackdrop;
         }
         if (source.CompositionTarget is { } target)
             target.BackgroundColor = hasBackdrop ? Colors.Transparent : captionColor;

@@ -11,6 +11,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 
 namespace StartStyleToolbox;
@@ -63,6 +64,36 @@ internal sealed class NativeStartMenu
     internal static bool HasRegion(string id, bool windows10) =>
         !windows10 || id is "main" or "pinned" or "apps" or "footer";
 
+    internal static bool IsCompanionPanelVisible()
+    {
+        if (UsesWindows10Layout)
+            return false;
+
+        try
+        {
+            using var start = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Start");
+            if (start?.GetValue("RightCompanionToggledOpen") is not 1)
+                return false;
+
+            using var companions = start.OpenSubKey("Companions");
+            if (companions is null)
+                return false;
+
+            foreach (string name in companions.GetSubKeyNames())
+            {
+                using var companion = companions.OpenSubKey(name);
+                if (companion?.GetValue("IsAvailable") is 1 && companion.GetValue("IsEnabled") is 1)
+                    return true;
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
     internal Compatibility GetCompatibility()
     {
         using var host = GetSupportedHost(out string message);
@@ -103,23 +134,38 @@ internal sealed class NativeStartMenu
             : "独立引擎已就绪", conflicts);
     }
 
-    internal HashSet<string> AppliedRegions()
+    internal Dictionary<string, byte[]>? ReadAppliedStyles()
     {
         using var host = FindHost(Environment.OSVersion.Version.Build, out _);
+        var styles = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         if (host is null)
-            return [];
-        using var map = OpenSession(host.Id);
-        using var legacy2 = OpenSession(host.Id, 2);
-        using var legacy3 = OpenSession(host.Id, 3);
-        using var legacy4 = OpenSession(host.Id, 4);
-        using var view = map?.CreateViewAccessor(0, MapSize, MemoryMappedFileAccess.Read);
-        using var view2 = legacy2?.CreateViewAccessor(0, LegacyMapSize, MemoryMappedFileAccess.Read);
-        using var view3 = legacy3?.CreateViewAccessor(0, LegacyMapSize, MemoryMappedFileAccess.Read);
-        using var view4 = legacy4?.CreateViewAccessor(0, MapSize, MemoryMappedFileAccess.Read);
-        int applied = (view?.ReadInt32(16) ?? 0) | (view2?.ReadInt32(16) ?? 0)
-            | (view3?.ReadInt32(16) ?? 0) | (view4?.ReadInt32(16) ?? 0);
-        return Region.All.Where((_, index) => (applied & (1 << index)) != 0)
-            .Select(region => region.Id).ToHashSet(StringComparer.Ordinal);
+            return styles;
+
+        var buffer = new byte[StyleSize * Region.All.Length];
+        for (int protocol = 5; protocol >= 2; protocol--)
+        {
+            using var map = OpenSession(host.Id, protocol);
+            if (map is null)
+                continue;
+            using var view = map.CreateViewAccessor(0, LegacyMapSize, MemoryMappedFileAccess.Read);
+            int revision = view.ReadInt32(4);
+            if (revision < 0 || view.ReadInt32(8) != revision)
+                return null;
+
+            int mask = view.ReadInt32(16);
+            if (mask != 0)
+                view.ReadArray(HeaderSize, buffer, 0, buffer.Length);
+            if (view.ReadInt32(8) != revision || view.ReadInt32(4) != revision)
+                return null;
+
+            for (int index = 0; index < Region.All.Length; index++)
+            {
+                string id = Region.All[index].Id;
+                if ((mask & (1 << index)) != 0 && !styles.ContainsKey(id))
+                    styles.Add(id, buffer.AsSpan(index * StyleSize, StyleSize).ToArray());
+            }
+        }
+        return styles;
     }
 
     internal async Task<CommitResult> RequestCommitAsync(Dictionary<string, StyleOptions> requested, bool mainEnabled)
@@ -286,8 +332,19 @@ internal sealed class NativeStartMenu
 
         var values = MemoryMarshal.Cast<byte, uint>(destination);
         values.Clear();
+        var color = StyleBrushes.ParseColor(style.Color);
         values[0] = (uint)style.Material;
-        values[1] = Argb(StyleBrushes.ParseColor(style.Color));
+        if (style.Material == Material.Transparent)
+        {
+            var transparentColor = StyleBrushes.TransparentColor(style, color);
+            // The host already supports an alpha-blended solid brush. Use it for tinted transparency.
+            if (transparentColor.A != 0)
+            {
+                values[0] = (uint)Material.Solid;
+                color = transparentColor;
+            }
+        }
+        values[1] = Argb(color);
         values[2] = (uint)style.Tint;
         values[3] = (uint)style.Luminosity;
         values[4] = (uint)style.Blur;
@@ -302,6 +359,26 @@ internal sealed class NativeStartMenu
         {
             values[6] = 1;
         }
+    }
+
+    internal static bool MatchesAppliedStyle(ReadOnlySpan<byte> applied, StyleOptions draft, StyleBrushes brushes)
+    {
+        Span<byte> encoded = stackalloc byte[StyleSize];
+        WriteStyle(encoded, draft, brushes);
+        var current = MemoryMarshal.Cast<byte, uint>(applied);
+        var pending = MemoryMarshal.Cast<byte, uint>(encoded);
+        if (current[0] != pending[0])
+            return false;
+
+        return (Material)pending[0] switch
+        {
+            Material.Original or Material.Transparent => true,
+            Material.Solid => current[1] == pending[1],
+            Material.Acrylic => current[1..4].SequenceEqual(pending[1..4]) && current[6] == pending[6],
+            Material.Blur => current[1..3].SequenceEqual(pending[1..3]) && current[4] == pending[4],
+            Material.Mica => current[5..].SequenceEqual(pending[5..]),
+            _ => false,
+        };
     }
 
     private static void Publish(MemoryMappedViewAccessor view, byte[] data, int revision)

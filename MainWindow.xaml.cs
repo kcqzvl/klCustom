@@ -5,10 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
-using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -33,7 +30,8 @@ public partial class MainWindow : Window
     private readonly List<RadioButton> themeMaterialButtons = [];
     private readonly List<TextBox> channels = [];
     private Compatibility compatibility = new(false, false, "");
-    private HashSet<string> applied = [];
+    private Dictionary<string, byte[]> appliedStyles = [];
+    private bool appliedStylesCurrent;
     private bool updating;
     private bool busy;
     private bool validColor = true;
@@ -48,9 +46,9 @@ public partial class MainWindow : Window
     private bool showingSettings;
     private bool startMenuExpanded = true;
     private bool startMenuAnimating;
+    private bool showCompanionPanel;
     private bool? editorIsActive;
     private bool runtimeInstalled;
-    private string? runtimeInstallStatus;
 
     public MainWindow() : this(Profile.Load(), true) { }
 
@@ -59,6 +57,7 @@ public partial class MainWindow : Window
         this.profile = profile;
         this.persist = persist;
         this.previewLightMode = previewLightMode;
+        showCompanionPanel = NativeStartMenu.IsCompanionPanelVisible();
         brushes = new StyleBrushes(WallpaperPalette.Read());
         saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         saveTimer.Tick += (_, _) => SaveProfile();
@@ -70,6 +69,10 @@ public partial class MainWindow : Window
         };
         updating = true;
         InitializeComponent();
+        WirePercentageInput(ThemeTintOpacityInput, ThemeTintOpacity);
+        WirePercentageInput(ThemeLuminosityInput, ThemeLuminosity);
+        WirePercentageInput(ThemeColorTransparencyInput, ThemeColorTransparency);
+        WirePercentageInput(ThemeBlurStrengthInput, ThemeBlurStrength);
         VersionText.Text = typeof(MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion.Split('+')[0].Replace('-', ' ');
         RefreshTheme();
@@ -136,8 +139,8 @@ public partial class MainWindow : Window
         }
 
         var tint = light ? profile.LightThemeTint : profile.DarkThemeTint;
-        bool useWallpaper = native.Transparency && (material == Material.Blur || material == Material.Acrylic && !hasBackdrop);
-        UpdateWallpaper(useWallpaper, material == Material.Blur ? tint.BlurRadius : 36);
+        bool useWallpaper = native.Transparency && material == Material.Acrylic && !hasBackdrop;
+        UpdateWallpaper(useWallpaper);
         var theme = (Light: light, Accent: AppPalette.SystemAccent(), Material: material,
             Tint: tint, HasBackdrop: hasBackdrop || WallpaperLayer.Source is not null, SystemDarkFallback: systemDarkFallback);
         if (theme == currentTheme)
@@ -164,7 +167,7 @@ public partial class MainWindow : Window
             ? AppPalette.FocusFade(visibleOpacity, target) : null);
     }
 
-    private void UpdateWallpaper(bool show, int radius)
+    private void UpdateWallpaper(bool show)
     {
         if (!show)
         {
@@ -179,12 +182,19 @@ public partial class MainWindow : Window
             wallpaper = WallpaperPalette.LoadImage(path, 1600);
         }
         WallpaperLayer.Source = wallpaper;
-        WallpaperBlur.Radius = radius;
     }
 
     private Region[] LocalizedRegions() => Region.All
-        .Where(region => NativeStartMenu.HasRegion(region.Id, NativeStartMenu.UsesWindows10Layout))
+        .Where(region => NativeStartMenu.HasRegion(region.Id, NativeStartMenu.UsesWindows10Layout) &&
+            (region.Id != "companion" || showCompanionPanel))
         .Select(region => region with { Label = Localization.RegionLabel(profile.Language, region.Id) }).ToArray();
+
+    private void LoadRegions(string? selectedId)
+    {
+        var regions = LocalizedRegions();
+        Regions.ItemsSource = regions;
+        Regions.SelectedItem = regions.FirstOrDefault(region => region.Id == (selectedId ?? "main")) ?? regions[0];
+    }
 
     private string L(string key) => Localization.Get(profile.Language, key);
 
@@ -209,8 +219,6 @@ public partial class MainWindow : Window
             if (button.Tag is Material material)
                 button.Content = Localization.MaterialName(profile.Language, material);
         ColorLabel.Text = L("color");
-        PresetButton.Content = L("preset");
-        ShareMainBackdrop.Content = L("share");
         PreviewLabel.Text = L("preview");
         LightScene.Content = L("lightWeb");
         DarkScene.Content = L("darkWindow");
@@ -242,10 +250,7 @@ public partial class MainWindow : Window
         RepositoryLabel.Text = L("repository");
         VersionLabel.Text = L("version");
         UpdateRuntimeStatus();
-        var regions = LocalizedRegions();
-        Regions.ItemsSource = regions;
-        Regions.SelectedItem = regions.FirstOrDefault(region => region.Id ==
-            (selectedId ?? (NativeStartMenu.UsesWindows10Layout ? "pinned" : "companion"))) ?? regions[0];
+        LoadRegions(selectedId);
         LanguageCombo.SelectedIndex = Array.IndexOf(Localization.SupportedLanguages, profile.Language);
         ApplySettingsState();
         updating = false;
@@ -407,7 +412,7 @@ public partial class MainWindow : Window
         ThemeLuminosity.Value = settings.Luminosity;
         ThemeBlurStrength.Value = settings.BlurRadius;
         var color = StyleBrushes.ParseColor(settings.Color);
-        ThemeColorTransparency.Value = (255 - color.A) * 100.0 / 255;
+        ThemeColorTransparency.Value = settings.ColorTransparency;
         SetThemeTintSwatch(color);
         UpdateThemeBlurVisibility();
         updating = wasUpdating;
@@ -420,9 +425,6 @@ public partial class MainWindow : Window
         if (StyleBrushes.TryColor(ThemeTintHex.Text, out var color))
         {
             ThemeTintHex.ClearValue(Control.BorderBrushProperty);
-            updating = true;
-            ThemeColorTransparency.Value = (255 - color.A) * 100.0 / 255;
-            updating = false;
             SetThemeTintSwatch(color);
             SetThemeTint(EditedThemeTint with { Color = StyleBrushes.Hex(color) });
         }
@@ -441,11 +443,8 @@ public partial class MainWindow : Window
 
     private void ThemeColorTransparency_Changed(object sender, RoutedPropertyChangedEventArgs<double> args)
     {
-        if (updating)
-            return;
-        var color = StyleBrushes.ParseColor(EditedThemeTint.Color);
-        color.A = (byte)Math.Round((100 - args.NewValue) * 255 / 100, MidpointRounding.AwayFromZero);
-        ThemeTintHex.Text = StyleBrushes.Hex(color);
+        if (!updating)
+            SetThemeTint(EditedThemeTint with { Transparency = args.NewValue });
     }
 
     private void UpdateThemeBlurVisibility()
@@ -499,69 +498,10 @@ public partial class MainWindow : Window
 
     private void UpdateRuntimeStatus()
     {
-        bool installed = runtimeInstalled && runtimeInstallStatus is null;
-        RuntimeStatus.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+        RuntimeStatus.Visibility = runtimeInstalled ? Visibility.Visible : Visibility.Collapsed;
         RuntimeStatus.Text = L("runtimeInstalled");
         RuntimeStatus.ToolTip = DesktopRuntime.DisplayName;
         System.Windows.Automation.AutomationProperties.SetName(RuntimeStatus, $"{DesktopRuntime.DisplayName} · {RuntimeStatus.Text}");
-        InstallRuntimeButton.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
-        InstallRuntimeButton.IsEnabled = runtimeInstallStatus is null;
-        InstallRuntimeButton.Content = L(runtimeInstallStatus ?? "runtimeInstall");
-        InstallRuntimeButton.ToolTip = DesktopRuntime.DisplayName;
-    }
-
-    private async void InstallRuntime_Click(object sender, RoutedEventArgs args)
-    {
-        if (runtimeInstallStatus is not null)
-            return;
-        RefreshRuntimeStatus();
-        if (runtimeInstalled)
-            return;
-
-        string? installerDirectory = null;
-        runtimeInstallStatus = "runtimeDownloading";
-        UpdateRuntimeStatus();
-        try
-        {
-            installerDirectory = Directory.CreateTempSubdirectory("klCustom-dotnet-").FullName;
-            string installer = Path.Combine(installerDirectory, DesktopRuntime.InstallerName);
-            using (var downloadTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
-                await DesktopRuntime.DownloadInstallerAsync(installer, downloadTimeout.Token);
-            runtimeInstallStatus = "runtimeInstalling";
-            UpdateRuntimeStatus();
-            using var process = Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true })
-                ?? throw new InvalidOperationException("Could not start the .NET installer.");
-            await process.WaitForExitAsync();
-            if (process.ExitCode is 1641 or 3010)
-                StatusText.Text = L("runtimeRestart");
-            else if (process.ExitCode is 1223 or unchecked((int)0x80070642))
-                StatusText.Text = L("runtimeCancelled");
-            else if (process.ExitCode != 0 || !DesktopRuntime.IsInstalled())
-                StatusText.Text = process.ExitCode == 0 ? L("runtimeFailed") : $"{L("runtimeFailed")} ({process.ExitCode})";
-        }
-        catch (Win32Exception error) when (error.NativeErrorCode == 1223)
-        {
-            StatusText.Text = L("runtimeCancelled");
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or HttpRequestException
-            or JsonException or KeyNotFoundException or InvalidOperationException or OperationCanceledException or Win32Exception)
-        {
-            StatusText.Text = L("runtimeFailed");
-        }
-        finally
-        {
-            if (installerDirectory is not null)
-            {
-                try
-                {
-                    File.Delete(Path.Combine(installerDirectory, DesktopRuntime.InstallerName));
-                    Directory.Delete(installerDirectory);
-                }
-                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
-            }
-            runtimeInstallStatus = null;
-            RefreshRuntimeStatus();
-        }
     }
 
     private void OpenUrl(string url)
@@ -574,7 +514,7 @@ public partial class MainWindow : Window
     }
 
     private Region SelectedRegion => (Region)Regions.SelectedItem;
-    private StyleOptions Options(Region region) => profile.Regions.GetValueOrDefault(region.Id) ?? new();
+    private StyleOptions Options(Region region) => profile.Regions.GetValueOrDefault(region.Id) ?? StyleOptions.DefaultDraft;
 
     private void CreateEditor()
     {
@@ -651,23 +591,24 @@ public partial class MainWindow : Window
         MainOwner.IsChecked = profile.MainEnabled;
         foreach (var button in materialButtons)
             button.IsChecked = Equals(button.Tag, options.Material);
-        bool canShare = region.Id == "companion" && options.Material == Material.Acrylic;
-        bool sharing = canShare && options.ShareMainBackdrop;
-        ShareMainBackdrop.Visibility = canShare ? Visibility.Visible : Visibility.Collapsed;
-        ShareMainBackdrop.IsChecked = sharing;
-        ColorEditor.Visibility = sharing || options.Material is Material.Original or Material.Transparent
+        ColorEditor.Visibility = options.Material == Material.Original
             ? Visibility.Collapsed : Visibility.Visible;
         SetColorControls(StyleBrushes.ParseColor(options.Color), updateHex: true);
 
         Sliders.Children.Clear();
-        if (!sharing && options.Material is Material.Acrylic or Material.Blur or Material.Mica)
-            AddSlider(L("tint"), options.Tint, 100, "%", (old, value) => old with { Tint = value });
-        if (!sharing && options.Material == Material.Acrylic)
-            AddSlider(L("luminosity"), options.Luminosity, 100, "%", (old, value) => old with { Luminosity = value });
+        if (options.Material is Material.Acrylic or Material.Blur or Material.Mica)
+            AddSlider(L("tint"), options.Tint, 100, (old, value) => old with { Tint = value });
+        if (options.Material == Material.Acrylic)
+            AddSlider(L("luminosity"), options.Luminosity, 100, (old, value) => old with { Luminosity = value });
+        if (options.Material == Material.Transparent)
+        {
+            AddSlider(L("tint"), options.TransparentTint, 100, (old, value) => old with { TransparentTint = value });
+            AddSlider(L("luminosity"), options.TransparentLuminosity, 100, (old, value) => old with { TransparentLuminosity = value });
+        }
         if (options.Material == Material.Blur)
-            AddSlider(L("blurRadius"), options.Blur, 64, " px", (old, value) => old with { Blur = value });
+            AddSlider(L("blurRadius"), options.Blur, 64, (old, value) => old with { Blur = value });
         if (options.Material == Material.Mica)
-            AddSlider(L("opacity"), options.Opacity, 100, "%", (old, value) => old with { Opacity = value });
+            AddSlider(L("opacity"), options.Opacity, 100, (old, value) => old with { Opacity = value });
 
         validColor = true;
         updating = false;
@@ -675,31 +616,66 @@ public partial class MainWindow : Window
         RefreshPreview();
     }
 
-    private void ShareMainBackdrop_Click(object sender, RoutedEventArgs args)
-    {
-        UpdateDraft(Options(SelectedRegion) with { ShareMainBackdrop = ShareMainBackdrop.IsChecked == true });
-        LoadEditor();
-    }
-
-    private void AddSlider(string label, int initial, int maximum, string unit,
+    private void AddSlider(string label, int initial, int maximum,
         Func<StyleOptions, int, StyleOptions> update)
     {
-        var valueLabel = new TextBlock { Text = initial + unit, Style = (Style)FindResource("Secondary") };
-        DockPanel.SetDock(valueLabel, Dock.Right);
+        string regionId = SelectedRegion.Id;
+        var input = new TextBox { Style = (Style)FindResource("SliderPercentageInput") };
+        DockPanel.SetDock(input, Dock.Right);
         var heading = new DockPanel
         {
-            Children = { valueLabel, new TextBlock { Text = label } },
+            Children = { input, new TextBlock { Text = label } },
         };
         var slider = new Slider { Minimum = 0, Maximum = maximum, Value = initial, Margin = new Thickness(0, 4, 0, 0) };
+        var row = new StackPanel { Margin = new Thickness(0, 0, 0, 11), Children = { heading, slider } };
+        System.Windows.Automation.AutomationProperties.SetName(input, label);
         System.Windows.Automation.AutomationProperties.SetName(slider, label);
         slider.ValueChanged += (_, args) =>
         {
-            int value = (int)args.NewValue;
-            valueLabel.Text = value + unit;
             if (!updating)
-                UpdateDraft(update(Options(SelectedRegion), value));
+                UpdateDraft(update(Options(SelectedRegion), (int)args.NewValue));
         };
-        Sliders.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 11), Children = { heading, slider } });
+        WirePercentageInput(input, slider, () => (Regions.SelectedItem as Region)?.Id == regionId && Sliders.Children.Contains(row));
+        Sliders.Children.Add(row);
+    }
+
+    private void WirePercentageInput(TextBox input, Slider slider, Func<bool>? canCommit = null)
+    {
+        int Percent(double value) => (int)Math.Round(value * 100 / slider.Maximum, MidpointRounding.AwayFromZero);
+        void ShowValue() => input.Text = $"{Percent(slider.Value)}%";
+        ShowValue();
+        slider.ValueChanged += (_, _) => ShowValue();
+        input.PreviewMouseLeftButtonDown += (_, args) =>
+        {
+            if (!input.IsKeyboardFocusWithin)
+                args.Handled = input.Focus();
+        };
+        input.GotKeyboardFocus += (_, _) =>
+        {
+            input.Text = Percent(slider.Value).ToString(CultureInfo.InvariantCulture);
+            input.SelectAll();
+        };
+        bool cancelEdit = false;
+        input.LostKeyboardFocus += (_, _) =>
+        {
+            var text = input.Text.Trim();
+            if (text.EndsWith('%'))
+                text = text[..^1].TrimEnd();
+            if (!cancelEdit && !updating && (canCommit is null || canCommit()) &&
+                int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int percent) &&
+                percent is >= 0 and <= 100 && percent != Percent(slider.Value))
+                slider.Value = Math.Round(percent * slider.Maximum / 100.0, MidpointRounding.AwayFromZero);
+            cancelEdit = false;
+            ShowValue();
+        };
+        input.PreviewKeyDown += (_, args) =>
+        {
+            if (args.Key is not (Key.Enter or Key.Escape))
+                return;
+            args.Handled = true;
+            cancelEdit = args.Key == Key.Escape;
+            slider.Focus();
+        };
     }
 
     private void SetColorControls(Color color, bool updateHex, bool updateChannels = true)
@@ -782,12 +758,11 @@ public partial class MainWindow : Window
         {
             bool systemDarkFallback = !theme.Light && !active;
             bool transparency = persist && !systemDarkFallback && AppPalette.SystemUsesTransparency();
-            bool acrylic = AppPalette.ApplyWindowAppearance(source, theme.Light, theme.Material, transparency);
-            ImageSource? backdrop = transparency && (theme.Material == Material.Blur ||
-                theme.Material == Material.Acrylic && !acrylic) ? wallpaper : null;
+            bool systemBackdrop = AppPalette.ApplyWindowAppearance(source, theme.Light, theme.Material, transparency);
+            ImageSource? backdrop = transparency && theme.Material == Material.Acrylic && !systemBackdrop ? wallpaper : null;
             var colors = AppPalette.Create(theme.Light, theme.Accent, theme.Material, theme.Tint,
-                acrylic || backdrop is not null, systemDarkFallback);
-            picker.SetBackdrop(acrylic, backdrop, theme.Material == Material.Acrylic ? 36 : theme.Tint.BlurRadius, colors);
+                systemBackdrop || backdrop is not null, systemDarkFallback);
+            picker.SetBackdrop(systemBackdrop, backdrop, colors);
         }
     }
 
@@ -798,12 +773,6 @@ public partial class MainWindow : Window
         SetColorControls(color, updateHex: true, updateChannels: updateChannels);
         updating = false;
         UpdateDraft(Options(SelectedRegion) with { Color = StyleBrushes.Hex(color) });
-    }
-
-    private void Preset_Click(object sender, RoutedEventArgs args)
-    {
-        UpdateDraft(StyleOptions.MistyBlue);
-        LoadEditor();
     }
 
     private void UpdateDraft(StyleOptions options)
@@ -833,20 +802,44 @@ public partial class MainWindow : Window
     private void RefreshPreview()
     {
         bool light = LightScene.IsChecked == true;
-        PreviewContent.Content = new StartPreview(brushes, light, Options, SelectedRegion.Id, NativeStartMenu.UsesWindows10Layout);
+        PreviewContent.Content = new StartPreview(brushes, light, Options, SelectedRegion.Id,
+            NativeStartMenu.UsesWindows10Layout, showCompanionPanel);
+    }
+
+    private void RefreshCompanionPanel()
+    {
+        bool visible = NativeStartMenu.IsCompanionPanelVisible();
+        if (visible == showCompanionPanel)
+            return;
+
+        showCompanionPanel = visible;
+        string? selectedId = (Regions.SelectedItem as Region)?.Id;
+        bool wasUpdating = updating;
+        updating = true;
+        LoadRegions(selectedId);
+        updating = wasUpdating;
+        if (SelectedRegion.Id == selectedId)
+            RefreshPreview();
+        else
+            LoadEditor();
     }
 
     private void RefreshCompatibility()
     {
+        RefreshCompanionPanel();
         try
         {
             compatibility = engine.GetCompatibility();
-            applied = engine.AppliedRegions();
+            var snapshot = engine.ReadAppliedStyles();
+            appliedStylesCurrent = snapshot is not null;
+            if (snapshot is not null)
+                appliedStyles = snapshot;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException
             or InvalidOperationException or System.Security.SecurityException or Win32Exception)
         {
             compatibility = new(false, false, "无法读取开始菜单状态");
+            appliedStylesCurrent = false;
             StatusText.Text = error.Message;
         }
         DependencyStatus.Text = compatibility.Message;
@@ -860,21 +853,27 @@ public partial class MainWindow : Window
             return;
         string? conflict = compatibility.Conflict(region.Id);
         bool canOwn = region.Id != "main" || profile.MainEnabled;
-        bool hasDraft = Options(region).Material != Material.Original;
-        bool hasApplied = applied.Contains(region.Id);
+        var draft = Options(region);
+        bool hasDraft = draft.Material != Material.Original;
+        var appliedStyle = appliedStyles.GetValueOrDefault(region.Id);
+        bool hasApplied = appliedStyle is not null;
+        bool hasChanges = hasDraft
+            ? appliedStyle is null || validColor && !NativeStartMenu.MatchesAppliedStyle(appliedStyle, draft, brushes)
+            : hasApplied;
         RegionStatus.Text = conflict ?? (!canOwn ? "主背景管理已关闭" : hasApplied ? "已应用到开始菜单" : "保持系统当前样式");
-        ApplyButton.IsEnabled = !busy && canOwn && validColor && (conflict is null || !hasDraft) &&
-            (hasDraft ? compatibility.CanApply : compatibility.CanRestore && hasApplied);
+        ApplyButton.IsEnabled = !busy && appliedStylesCurrent && canOwn && validColor && hasChanges &&
+            (hasDraft ? compatibility.CanApply && conflict is null : compatibility.CanRestore);
         ApplyButton.ToolTip = ApplyButton.IsEnabled ? null
             : busy ? "正在更新开始菜单"
             : conflict is not null ? conflict
             : !canOwn ? "请先启用主背景管理"
             : !validColor ? "请输入有效的颜色"
-            : !hasDraft && !hasApplied ? "请先选择要应用的材质"
+            : !appliedStylesCurrent && compatibility.CanApply ? L("applyChecking")
+            : appliedStylesCurrent && !hasChanges ? L("applyNoChanges")
             : compatibility.Message;
         CopyButton.IsEnabled = !busy && validColor;
         RestoreButton.IsEnabled = !busy && (hasApplied ? compatibility.CanRestore : hasDraft);
-        RestoreAllButton.IsEnabled = !busy && (applied.Count != 0
+        RestoreAllButton.IsEnabled = !busy && (appliedStyles.Count != 0
             ? compatibility.CanRestore : profile.Regions.Values.Any(options => options.Material != Material.Original));
         MainOwner.IsEnabled = !busy && conflict is null;
     }
@@ -891,7 +890,7 @@ public partial class MainWindow : Window
                 return;
             }
         }
-        else if (applied.Contains("main") && !await CommitAsync(new() { ["main"] = new() }))
+        else if (appliedStyles.ContainsKey("main") && !await CommitAsync(new() { ["main"] = new() }))
         {
             MainOwner.IsChecked = true;
             return;
@@ -924,16 +923,19 @@ public partial class MainWindow : Window
 
     private async void Apply_Click(object sender, RoutedEventArgs args)
     {
-        brushes = new StyleBrushes(WallpaperPalette.Read());
-        RefreshPreview();
         var region = SelectedRegion;
+        brushes = new StyleBrushes(WallpaperPalette.Read());
+        RefreshCompatibility();
+        if (!ApplyButton.IsEnabled || SelectedRegion.Id != region.Id)
+            return;
+        RefreshPreview();
         await CommitAsync(new() { [region.Id] = Options(region) });
     }
 
     private async void Restore_Click(object sender, RoutedEventArgs args)
     {
         var region = SelectedRegion;
-        if (!applied.Contains(region.Id) || await CommitAsync(new() { [region.Id] = new() }))
+        if (!appliedStyles.ContainsKey(region.Id) || await CommitAsync(new() { [region.Id] = new() }))
         {
             profile.Regions.Remove(region.Id);
             QueueSave();
@@ -943,7 +945,7 @@ public partial class MainWindow : Window
 
     private async void RestoreAll_Click(object sender, RoutedEventArgs args)
     {
-        if (applied.Count > 0 && !await CommitAsync(applied.ToDictionary(id => id, _ => new StyleOptions())))
+        if (appliedStyles.Count > 0 && !await CommitAsync(appliedStyles.Keys.ToDictionary(id => id, _ => new StyleOptions())))
             return;
         profile.Regions.Clear();
         QueueSave();

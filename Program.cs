@@ -22,7 +22,6 @@ internal static class Program
             _ => throw new ArgumentException("Expected light or dark.", nameof(args)),
         } : null;
         var profile = new Profile();
-        profile.Regions["companion"] = StyleOptions.MistyBlue;
         var window = new MainWindow(profile, persist: false, previewLightMode: light);
         window.ShowActivated = false;
         window.ContentRendered += (_, _) =>

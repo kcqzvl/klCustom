@@ -10,13 +10,12 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 
 1. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 2. Run `klCustom.exe`. Self-contained builds include the runtime needed to open the toolbox.
-3. To install the system-wide .NET 10 Desktop Runtime, select **Install .NET 10** in the title bar. If it is already installed, the title bar shows **Runtime dependency installed**.
 
 ## Customizing the Start menu
 
 - Select a region and preview its style before applying it. Materials include solid color, transparency, acrylic, blur, and a Mica approximation.
 - Enable main panel customization in the editor before applying a style to its background.
-- On systems with a right companion panel, its acrylic can use independent settings or follow the main menu background. Shared mode samples a narrow strip near the divider while Start is open and keeps the sample in memory.
+- Transparent material supports color, tint opacity, and luminosity. Set both sliders to zero for a fully clear background.
 - Restore a single region from its editor, or use **Restore all** in Settings to restore all regions and clear drafts. The app saves drafts locally. Applied styles last until the Start menu host restarts.
 - In Settings, choose a light or dark theme, or follow the Windows app mode. The editor uses the Windows accent color and supports Simplified Chinese, Traditional Chinese (Hong Kong), English, and Japanese.
 
@@ -27,7 +26,7 @@ The x64 Start menu component checks both the Windows build and the Start menu ho
 | Windows | Supported builds | Start menu regions |
 | --- | --- | --- |
 | Windows 10 21H2 LTSC and 22H2 | 19044, 19045 | Main panel, pinned tiles, all apps, and the account and power area |
-| Windows 11 | 22000, 22621, 22631, 26100, 26200, 26300, 28000 | Main panel, pinned apps, recommendations, all apps, search box, account and power area, and the right companion panel where available |
+| Windows 11 | 22000, 22621, 22631, 26100, 26200, 26300, 28000 | Main panel, pinned apps, recommendations, all apps, search box, account and power area, and the widgets panel where available |
 
 On Windows 10, the app window uses blurred wallpaper and a theme tint for acrylic when the system backdrop is unavailable.
 

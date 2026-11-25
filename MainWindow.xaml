@@ -245,6 +245,22 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="SliderPercentageInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                    <Setter Property="Background" Value="{DynamicResource Field}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
             <Setter Property="Background" Value="{DynamicResource Field}"/>
@@ -453,7 +469,7 @@
             <RowDefinition Height="64"/>
         </Grid.RowDefinitions>
         <Image x:Name="WallpaperLayer" Grid.RowSpan="3" Stretch="UniformToFill" Margin="-64" IsHitTestVisible="False">
-            <Image.Effect><BlurEffect x:Name="WallpaperBlur" KernelType="Gaussian"/></Image.Effect>
+            <Image.Effect><BlurEffect Radius="36" KernelType="Gaussian"/></Image.Effect>
         </Image>
         <Border Grid.RowSpan="3" Background="{DynamicResource Canvas}" IsHitTestVisible="False"/>
         <Border x:Name="InactiveWindowLayer" Grid.RowSpan="3" Background="{DynamicResource InactiveWindowFill}"
@@ -482,8 +498,6 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="InstallRuntimeButton" Click="InstallRuntime_Click" FontSize="12" Padding="9,4"
-                        Margin="0,0,10,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
                 <TextBlock x:Name="RuntimeStatus" Style="{StaticResource Secondary}" Margin="0,0,10,0"
                            VerticalAlignment="Center" Foreground="{Binding Foreground, ElementName=DependencyStatus}"
                            Visibility="Collapsed"/>
@@ -536,28 +550,26 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="400"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <Border Grid.Column="0" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="22,20" Margin="0,0,18,0">
-                            <StackPanel>
-                                <CheckBox x:Name="MainOwner" Content="由本工具管理主背景" Margin="0,0,0,16" Click="MainOwner_Click" Visibility="Collapsed"/>
-                                <TextBlock x:Name="MaterialLabel" Text="材质" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8"/>
-                                <UniformGrid x:Name="Materials" Columns="3" Rows="2" Margin="0,0,0,18"/>
-                                <CheckBox x:Name="ShareMainBackdrop" Margin="0,0,0,14" Content="跟随主菜单背景" Click="ShareMainBackdrop_Click" Visibility="Collapsed"
-                                          ToolTip="右侧面板复用主菜单的背景取样和色调"/>
-                                <StackPanel x:Name="ColorEditor">
-                                    <DockPanel Margin="0,0,0,8" LastChildFill="False">
-                                        <TextBlock x:Name="ColorLabel" DockPanel.Dock="Left" Text="颜色" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        <Button DockPanel.Dock="Right" x:Name="PresetButton" Click="Preset_Click" Content="雾蓝紫" Padding="9,4"/>
-                                    </DockPanel>
-                                    <Grid Margin="0,0,0,9">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <Button x:Name="Swatch" Grid.Column="0" Width="40" Height="31" Padding="3" Click="Swatch_Click" ToolTip="选取颜色" AutomationProperties.Name="选取颜色">
-                                            <Border x:Name="SwatchFill" Width="28" Height="21" CornerRadius="4"/>
-                                        </Button>
-                                        <TextBox x:Name="HexBox" Grid.Column="2" TextChanged="HexChanged" MaxLength="9" Height="31" FontFamily="Consolas" AutomationProperties.Name="十六进制颜色"/>
-                                    </Grid>
-                                    <UniformGrid x:Name="Channels" Columns="4" Rows="1" Margin="0,0,0,15"/>
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top">
+                                    <TextBlock x:Name="MaterialLabel" Text="材质" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8"/>
+                                    <UniformGrid x:Name="Materials" Columns="3" Rows="2" Margin="0,0,0,18"/>
+                                    <StackPanel x:Name="ColorEditor">
+                                        <TextBlock x:Name="ColorLabel" Text="颜色" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,9">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <Button x:Name="Swatch" Grid.Column="0" Width="40" Height="31" Padding="3" Click="Swatch_Click" ToolTip="选取颜色" AutomationProperties.Name="选取颜色">
+                                                <Border x:Name="SwatchFill" Width="28" Height="21" CornerRadius="4"/>
+                                            </Button>
+                                            <TextBox x:Name="HexBox" Grid.Column="2" TextChanged="HexChanged" MaxLength="9" Height="31" FontFamily="Consolas" AutomationProperties.Name="十六进制颜色"/>
+                                        </Grid>
+                                        <UniformGrid x:Name="Channels" Columns="4" Rows="1" Margin="0,0,0,15"/>
+                                    </StackPanel>
+                                    <StackPanel x:Name="Sliders"/>
                                 </StackPanel>
-                                <StackPanel x:Name="Sliders"/>
-                            </StackPanel>
+                                <CheckBox x:Name="MainOwner" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,16,0,0"
+                                          Content="由本工具管理主背景" Click="MainOwner_Click" Visibility="Collapsed"/>
+                            </DockPanel>
                         </Border>
                         <Border Grid.Column="1" Background="{DynamicResource Card}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="18,17" MinHeight="450">
                             <Grid>
@@ -635,29 +647,33 @@
                                         </DockPanel>
                                         <TextBlock Grid.Row="1" x:Name="ThemeTintOpacityLabel" VerticalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                         <DockPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
-                                            <TextBlock DockPanel.Dock="Right" Width="46" TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource Secondary}" Text="{Binding ElementName=ThemeTintOpacity, Path=Value, StringFormat={}{0:0}%}"/>
+                                            <TextBox x:Name="ThemeTintOpacityInput" DockPanel.Dock="Right" Width="54"
+                                                     Style="{StaticResource SliderPercentageInput}"
+                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeTintOpacityLabel}"/>
                                             <Slider x:Name="ThemeTintOpacity" Maximum="100" ValueChanged="ThemeTintSlider_Changed"
                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeTintOpacityLabel}"/>
                                         </DockPanel>
                                         <TextBlock Grid.Row="2" x:Name="ThemeLuminosityLabel" VerticalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                         <DockPanel Grid.Row="2" Grid.Column="2" Margin="0,10,0,0">
-                                            <TextBlock DockPanel.Dock="Right" Width="46" TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource Secondary}" Text="{Binding ElementName=ThemeLuminosity, Path=Value, StringFormat={}{0:0}%}"/>
+                                            <TextBox x:Name="ThemeLuminosityInput" DockPanel.Dock="Right" Width="54"
+                                                     Style="{StaticResource SliderPercentageInput}"
+                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeLuminosityLabel}"/>
                                             <Slider x:Name="ThemeLuminosity" Maximum="100" ValueChanged="ThemeTintSlider_Changed"
                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeLuminosityLabel}"/>
                                         </DockPanel>
                                         <TextBlock Grid.Row="3" x:Name="ThemeColorTransparencyLabel" VerticalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                         <DockPanel Grid.Row="3" Grid.Column="2" Margin="0,10,0,0">
-                                            <TextBlock DockPanel.Dock="Right" Width="54" TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource Secondary}" Text="{Binding ElementName=ThemeColorTransparency, Path=Value, StringFormat={}{0:0.##}%}"/>
+                                            <TextBox x:Name="ThemeColorTransparencyInput" DockPanel.Dock="Right" Width="54"
+                                                     Style="{StaticResource SliderPercentageInput}"
+                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeColorTransparencyLabel}"/>
                                             <Slider x:Name="ThemeColorTransparency" Maximum="100" ValueChanged="ThemeColorTransparency_Changed"
                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeColorTransparencyLabel}"/>
                                         </DockPanel>
                                         <TextBlock Grid.Row="4" x:Name="ThemeBlurStrengthLabel" VerticalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"/>
                                         <DockPanel Grid.Row="4" Grid.Column="2" x:Name="ThemeBlurStrengthField" Margin="0,10,0,0">
-                                            <TextBlock DockPanel.Dock="Right" Width="54" TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource Secondary}" Text="{Binding ElementName=ThemeBlurStrength, Path=Value, StringFormat={}{0:0} px}"/>
+                                            <TextBox x:Name="ThemeBlurStrengthInput" DockPanel.Dock="Right" Width="54"
+                                                     Style="{StaticResource SliderPercentageInput}"
+                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeBlurStrengthLabel}"/>
                                             <Slider x:Name="ThemeBlurStrength" Maximum="64" ValueChanged="ThemeTintSlider_Changed"
                                                     AutomationProperties.LabeledBy="{Binding ElementName=ThemeBlurStrengthLabel}"/>
                                         </DockPanel>

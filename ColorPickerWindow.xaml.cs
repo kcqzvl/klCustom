@@ -49,13 +49,12 @@ internal partial class ColorPickerWindow : Window
         RenderFields();
     }
 
-    internal void SetBackdrop(bool acrylic, ImageSource? wallpaper, int radius, ResourceDictionary palette)
+    internal void SetBackdrop(bool systemBackdrop, ImageSource? wallpaper, ResourceDictionary palette)
     {
         Resources.MergedDictionaries.Clear();
         Resources.MergedDictionaries.Add(palette);
         WallpaperLayer.Source = wallpaper;
-        WallpaperBlur.Radius = radius;
-        Backdrop.SetResourceReference(Border.BackgroundProperty, acrylic || wallpaper is not null ? "Canvas" : "DialogSurface");
+        Backdrop.SetResourceReference(Border.BackgroundProperty, systemBackdrop || wallpaper is not null ? "Canvas" : "DialogSurface");
     }
 
     private TextBox AddField(string title, int maxLength, string unit = "", double width = 86)
