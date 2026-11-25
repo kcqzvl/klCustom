@@ -1,14 +1,16 @@
-# kzl Custom
+# klCustom
 
 **English** · [简体中文](README.zh-CN.md)
 
-kzl Custom is a standalone Windows x64 app for customizing the colors, transparency, and background materials of the Windows Start menu.
+klCustom is a standalone Windows x64 app for customizing the colors, transparency, and background materials of the Windows Start menu.
+
+For questions or suggestions, please open an issue. [GitHub Issues](https://github.com/kcqzvl/klCustom/issues)
 
 ## Getting started
 
 1. Install the Windows x64 .NET 10 Desktop Runtime. [Download .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0)
-2. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/kzl-Custom/releases)
-3. Run `kzl Custom.exe`.
+2. Download the Windows x64 ZIP and extract all files to a folder you can write to. [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
+3. Run `klCustom.exe`.
 
 ## Customizing the Start menu
 
@@ -38,8 +40,10 @@ Install the .NET 10 SDK, a Clang toolchain that targets Windows x64 with MinGW, 
 dotnet run --project tests/RuleChecks.csproj -c Release
 ```
 
-The build places `kzl Custom.exe` and its bundled Start menu component in `artifacts/kzl Custom/` by default.
+The build places `klCustom.exe` and its bundled Start menu component in `artifacts/klCustom/` by default.
 
-The app checks the host version and manages applying and restoring styles. [Host detection and style management](https://github.com/kcqzvl/kzl-Custom/blob/main/NativeStartMenu.cs)
+Add `-SigningCertificateThumbprint` with your code-signing certificate’s thumbprint to sign the EXE and both DLLs. Use `-TimestampServer` to timestamp the signatures. Self-signed certificates require `-AllowSelfSigned`.
 
-The native component maps menu regions, creates materials, and shares a parameter format with the app. [Region mappings](https://github.com/kcqzvl/kzl-Custom/blob/main/native/RegionTargets.h) · [Materials](https://github.com/kcqzvl/kzl-Custom/blob/main/native/Brushes.h) · [Parameter format](https://github.com/kcqzvl/kzl-Custom/blob/main/native/StyleProtocol.h)
+The app checks the host version and manages applying and restoring styles. [Host detection and style management](https://github.com/kcqzvl/klCustom/blob/main/NativeStartMenu.cs)
+
+The native component maps menu regions, creates materials, and shares a parameter format with the app. [Region mappings](https://github.com/kcqzvl/klCustom/blob/main/native/RegionTargets.h) · [Materials](https://github.com/kcqzvl/klCustom/blob/main/native/Brushes.h) · [Parameter format](https://github.com/kcqzvl/klCustom/blob/main/native/StyleProtocol.h)

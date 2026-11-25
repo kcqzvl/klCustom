@@ -6,10 +6,10 @@
     <PlatformTarget>x64</PlatformTarget>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
-    <AssemblyName>kzl Custom</AssemblyName>
-    <Product>kzl Custom</Product>
+    <AssemblyName>klCustom</AssemblyName>
+    <Product>klCustom</Product>
     <RootNamespace>StartStyleToolbox</RootNamespace>
-    <Version>0.2.4</Version>
+    <Version>0.2.6</Version>
     <StartupObject>StartStyleToolbox.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>

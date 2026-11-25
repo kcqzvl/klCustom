@@ -25,6 +25,8 @@ internal sealed record CommitResult(bool Success, string Message);
 internal sealed class NativeStartMenu
 {
     private const string HostName = "StartMenuExperienceHost";
+    private const string HostPackageName = "Microsoft.Windows.StartMenuExperienceHost";
+    private const string WindowsPublisherId = "cw5n1h2txyewy";
     private const string DllName = "kzlStartMenuHost5.dll";
     private const int HeaderSize = 32;
     private const int StyleSize = 36;
@@ -35,7 +37,8 @@ internal sealed class NativeStartMenu
         Path.Combine(Path.GetDirectoryName(typeof(NativeStartMenu).Assembly.Location)!, DllName);
     private static readonly string HostPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-        @"SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe");
+        "SystemApps", $"{HostPackageName}_{WindowsPublisherId}", $"{HostName}.exe");
+    private static readonly Version MissingFileVersion = new(0, 0, 0, 0);
 
     internal static bool UsesWindows10Layout => Environment.OSVersion.Version.Build < 22000;
 
@@ -332,6 +335,7 @@ internal sealed class NativeStartMenu
 
     private static Process? FindHost(int build, out string message)
     {
+        const uint queryLimitedInformation = 0x1000;
         using var current = Process.GetCurrentProcess();
         int sessionId = current.SessionId;
         var candidates = Process.GetProcessesByName(HostName);
@@ -347,13 +351,18 @@ internal sealed class NativeStartMenu
                 {
                     if (candidate.SessionId != sessionId)
                         continue;
-                    string? image = ReadProcessImage(candidate.Id);
+                    using var process = OpenProcess(queryLimitedInformation, false, candidate.Id);
+                    string? image = process.IsInvalid ? null : ReadProcessImage(process);
                     if (image is null)
                         unreadable = true;
                     else if (IsSystemHostPath(image))
                     {
-                        var info = FileVersionInfo.GetVersionInfo(HostPath);
-                        var version = new Version(info.FileMajorPart, info.FileMinorPart, info.FileBuildPart, info.FilePrivatePart);
+                        var version = ReadHostVersion(FileVersionInfo.GetVersionInfo(HostPath), process);
+                        if (version is null)
+                        {
+                            message = $"无法读取开始菜单宿主版本（Windows {build}）";
+                            return null;
+                        }
                         if (!SupportsHostVersion(build, version))
                         {
                             message = $"此系统的开始菜单宿主版本尚未适配（{build} / {version}）";
@@ -394,16 +403,41 @@ internal sealed class NativeStartMenu
         return image.Equals(HostPath.AsSpan(), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string? ReadProcessImage(int id)
+    private static string? ReadProcessImage(SafeProcessHandle process)
     {
-        const uint queryLimitedInformation = 0x1000;
-        using var process = OpenProcess(queryLimitedInformation, false, id);
-        if (process.IsInvalid)
-            return null;
-
         var image = new StringBuilder(1024);
         int length = image.Capacity;
         return QueryFullProcessImageName(process, 0, image, ref length) ? image.ToString() : null;
+    }
+
+    private static Version? ReadHostVersion(FileVersionInfo info, SafeProcessHandle process)
+    {
+        var version = new Version(info.FileMajorPart, info.FileMinorPart, info.FileBuildPart, info.FilePrivatePart);
+        if (version != MissingFileVersion)
+            return version;
+
+        const int insufficientBuffer = 122;
+        uint length = 0;
+        if (GetPackageFullName(process, ref length, null) != insufficientBuffer || length == 0)
+            return null;
+
+        var fullName = new StringBuilder(checked((int)length));
+        return GetPackageFullName(process, ref length, fullName) == 0
+            ? ParseHostPackageVersion(fullName.ToString())
+            : null;
+    }
+
+    internal static Version? ParseHostPackageVersion(string fullName)
+    {
+        // Package full name fields are name, version, architecture, resource ID and publisher ID.
+        var fields = fullName.Split('_');
+        if (fields.Length != 5 ||
+            !fields[0].Equals(HostPackageName, StringComparison.OrdinalIgnoreCase) ||
+            !fields[4].Equals(WindowsPublisherId, StringComparison.OrdinalIgnoreCase) ||
+            !Version.TryParse(fields[1], out var version) || version.Revision < 0 || version == MissingFileVersion)
+            return null;
+
+        return version;
     }
 
     private static int RegionMask(IEnumerable<string> ids)
@@ -484,6 +518,10 @@ internal sealed class NativeStartMenu
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool QueryFullProcessImageName(SafeProcessHandle process, uint flags, StringBuilder image, ref int length);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern int GetPackageFullName(SafeProcessHandle process, ref uint length, StringBuilder? fullName);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

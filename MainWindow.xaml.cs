@@ -480,7 +480,7 @@ public partial class MainWindow : Window
 
     private void AuthorLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl");
 
-    private void RepositoryLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl/kzl-Custom");
+    private void RepositoryLink_Click(object sender, RoutedEventArgs args) => OpenUrl("https://github.com/kcqzvl/klCustom");
 
     private void OpenUrl(string url)
     {

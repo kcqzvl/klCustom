@@ -1,14 +1,16 @@
-# kzl Custom
+# klCustom
 
 [English](README.md) · **简体中文**
 
-kzl Custom 是一款独立的 Windows x64 工具，用于自定义系统开始菜单的颜色、透明度和背景材质。
+klCustom 是一款独立的 Windows x64 工具，用于自定义系统开始菜单的颜色、透明度和背景材质。
+
+有任何问题或建议请提交 Issue。[GitHub Issues](https://github.com/kcqzvl/klCustom/issues)
 
 ## 开始使用
 
 1. 安装 Windows x64 版 .NET 10 Desktop Runtime。[下载 .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0)
-2. 下载 Windows x64 ZIP，将所有文件解压到当前用户可写的目录。[GitHub 发布页](https://github.com/kcqzvl/kzl-Custom/releases)
-3. 运行 `kzl Custom.exe`。
+2. 下载 Windows x64 ZIP，将所有文件解压到当前用户可写的目录。[GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
+3. 运行 `klCustom.exe`。
 
 ## 自定义开始菜单
 
@@ -38,8 +40,10 @@ x64 开始菜单组件会检查 Windows 构建号和开始菜单宿主版本。�
 dotnet run --project tests/RuleChecks.csproj -c Release
 ```
 
-构建后，`kzl Custom.exe` 和随附的开始菜单组件默认位于 `artifacts/kzl Custom/`。
+构建后，`klCustom.exe` 和随附的开始菜单组件默认位于 `artifacts/klCustom/`。
 
-应用负责检查宿主版本，并管理样式的应用与恢复。[宿主检测与样式管理](https://github.com/kcqzvl/kzl-Custom/blob/main/NativeStartMenu.cs)
+构建时可用 `-SigningCertificateThumbprint` 指定代码签名证书的指纹，为 EXE 和两个 DLL 签名。用 `-TimestampServer` 为签名添加时间戳。使用自签名证书时需加上 `-AllowSelfSigned`。
 
-原生组件负责匹配菜单区域、绘制材质，并与应用使用相同的参数格式。[区域映射](https://github.com/kcqzvl/kzl-Custom/blob/main/native/RegionTargets.h) · [材质实现](https://github.com/kcqzvl/kzl-Custom/blob/main/native/Brushes.h) · [参数格式](https://github.com/kcqzvl/kzl-Custom/blob/main/native/StyleProtocol.h)
+应用负责检查宿主版本，并管理样式的应用与恢复。[宿主检测与样式管理](https://github.com/kcqzvl/klCustom/blob/main/NativeStartMenu.cs)
+
+原生组件负责匹配菜单区域、绘制材质，并与应用使用相同的参数格式。[区域映射](https://github.com/kcqzvl/klCustom/blob/main/native/RegionTargets.h) · [材质实现](https://github.com/kcqzvl/klCustom/blob/main/native/Brushes.h) · [参数格式](https://github.com/kcqzvl/klCustom/blob/main/native/StyleProtocol.h)

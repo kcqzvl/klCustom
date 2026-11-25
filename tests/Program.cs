@@ -18,6 +18,18 @@ Require(!NativeStartMenu.SupportsHostVersion(26300, new(6, 2, 9200, 0)), "legacy
 Require(!NativeStartMenu.SupportsHostVersion(19045, new(6, 2, 26100, 9818)), "legacy prefix retains host family validation");
 Require(!NativeStartMenu.SupportsHostVersion(26301, new(10, 0, 26100, 9818)), "unknown Windows build");
 Require(!NativeStartMenu.SupportsHostVersion(19045, new(10, 0, 26100, 9818)), "foreign host family");
+var packageVersion = NativeStartMenu.ParseHostPackageVersion(
+    "Microsoft.Windows.StartMenuExperienceHost_10.0.19041.1_neutral__cw5n1h2txyewy");
+Require(packageVersion is not null && NativeStartMenu.SupportsHostVersion(19045, packageVersion),
+    "Windows 10 22H2 falls back to the host package's 19041 build");
+Require(packageVersion is not null && !NativeStartMenu.SupportsHostVersion(26100, packageVersion),
+    "fallback package version still requires a compatible build");
+Require(NativeStartMenu.ParseHostPackageVersion(
+    "Microsoft.Windows.StartMenuExperienceHost_10.0.19041.1_neutral__other") is null, "different package publisher");
+Require(NativeStartMenu.ParseHostPackageVersion(
+    "Microsoft.Windows.ShellExperienceHost_10.0.19041.1_neutral__cw5n1h2txyewy") is null, "different system package");
+Require(NativeStartMenu.ParseHostPackageVersion(
+    "Microsoft.Windows.StartMenuExperienceHost_0.0.0.0_neutral__cw5n1h2txyewy") is null, "missing package version");
 var systemHost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
     @"SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe");
 Require(NativeStartMenu.IsSystemHostPath(systemHost.ToLowerInvariant()), "system host path casing");
