@@ -37,7 +37,7 @@ if ($SigningCertificateThumbprint) {
 $payload = Join-Path $output 'payload.zip'
 [IO.Compression.ZipFile]::CreateFromDirectory($light, $payload, [IO.Compression.CompressionLevel]::Optimal, $false)
 
-$downloader = "klCustom-$version-Downloader-x64.exe"
+$downloader = "klCustom-$version-installer-x64.exe"
 $downloaderPath = Join-Path $output $downloader
 $framework = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $compiler = Join-Path $framework 'csc.exe'

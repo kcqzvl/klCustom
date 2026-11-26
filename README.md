@@ -1,36 +1,33 @@
-# klCustom
+# kl Custom
 
 **English** · [简体中文](README.zh-CN.md)
 
-klCustom is a standalone Windows x64 app for customizing the colors, transparency, and background materials of the Windows Start menu.
+kl Custom is a standalone Windows 11 x64 app for customizing the colors, transparency, and materials of individual Start menu areas.
 
 For questions or suggestions, please open an issue. [GitHub Issues](https://github.com/kcqzvl/klCustom/issues)
 
 ## Getting started
 
-- **7z portable package**. Extract the app folder and run `klCustom.exe`. The app loads its .NET 10 Desktop Runtime from the `.net` folder alongside the executable.
-- **EXE downloader**. Choose a destination and whether to download the official x64 .NET 10 Desktop Runtime. With the option selected, the app can run directly from the new folder, with its runtime in `.net`. With the option cleared, it uses the runtime installed in Windows.
+- **7z portable package**. Extract the entire app folder and run `klCustom.exe`. The package includes the .NET 10 Desktop Runtime in the `.net` folder alongside the executable.
+- **EXE installer**. Run `klCustom-<version>-installer-x64.exe`, choose a destination, and choose whether to download the x64 .NET 10 Desktop Runtime from Microsoft. The installer puts the app in its own folder. When selected, the runtime goes into that folder's `.net` subfolder. With the option cleared, the app uses the .NET 10 Desktop Runtime installed in Windows.
 
 [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 
 ## Customizing the Start menu
 
-- Select a region and preview its style before applying it. Materials include solid color, transparency, acrylic, blur, and a Mica approximation.
-- Enable main panel customization in the editor before applying a style to its background.
-- Transparent material supports color, tint opacity, and luminosity. Set both sliders to zero for a fully clear background.
-- Restore a single region from its editor, or use **Restore all** in Settings to restore all regions and clear drafts. The app saves drafts locally. Applied styles last until the Start menu host restarts.
-- In Settings, choose a light or dark theme, or follow the Windows app mode. The editor uses the Windows accent color and supports Simplified Chinese, Traditional Chinese (Hong Kong), English, and Japanese.
+- Customize the main panel, pinned apps, recommendations, all apps, search box, and account and power area. The widgets panel appears in the editor and preview when Windows provides it.
+- Choose solid color, transparency, acrylic, blur, or a Mica approximation. Adjust the color and material controls, click a percentage to enter a value, and preview the result against a light webpage or dark window. Set both sliders for transparent material to zero for a fully clear background.
+- Enable main background management in the editor before applying a style to that area. If the app detects a styling conflict, it pauses changes for the affected area.
+- Copy a style to another region, restore an individual region, or use **Restore all** in Settings. Drafts are saved locally. Applied styles last until the Start menu host restarts.
 
-## Windows compatibility
+## App appearance and language
 
-The x64 Start menu component checks both the Windows build and the Start menu host version. Supported build families can include cumulative updates.
+- Choose Light, Dark, or Follow system in Settings. The interface uses the Windows accent color. Transparent, blur, and acrylic window materials are available with separate tint settings for light and dark modes.
+- The interface supports Simplified Chinese, Traditional Chinese (Hong Kong), English, and Japanese. **Settings → About** shows the app version and links to GitHub and bilibili.
 
-| Windows | Supported builds | Start menu regions |
-| --- | --- | --- |
-| Windows 10 21H2 LTSC and 22H2 | 19044, 19045 | Main panel, pinned tiles, all apps, and the account and power area |
-| Windows 11 | 22000, 22621, 22631, 26100, 26200, 26300, 28000 | Main panel, pinned apps, recommendations, all apps, search box, account and power area, and the widgets panel where available |
+## Windows 11 compatibility
 
-On Windows 10, the app window uses blurred wallpaper and a theme tint for acrylic when the system backdrop is unavailable.
+The Start menu component targets Windows 11 x64 builds `22000`, `22621`, `22631`, `26100`, `26200`, `26300`, and `28000`. The app checks both the Windows build and the Start menu host version before applying changes.
 
 ## Build from source
 
