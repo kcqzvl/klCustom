@@ -10,49 +10,81 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
-namespace KlCustom.Downloader
+namespace KlCustom.Installer
 {
-    internal static class Package
+    internal static class RuntimePackage
     {
         private const string Manifest = "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json";
+        private const string OwnerFile = ".klcustom-runtime";
+        private const string Owner = "kl Custom MSI private runtime";
 
-        internal static Task<string> PrepareAsync(string directory, bool includeRuntime)
+        internal static void Ensure(string directory, string productCode)
         {
-            return Task.Run(async () =>
-            {
-                if (string.IsNullOrWhiteSpace(directory))
-                    throw new IOException("请选择保存位置。");
+            string runtime = Path.Combine(directory, ".net");
+            if (HasFramework(runtime))
+                return;
 
-                directory = Path.GetFullPath(directory);
-                Directory.CreateDirectory(directory);
-                var version = typeof(Package).Assembly.GetName().Version.ToString(3);
-                string target = Path.Combine(directory, "klCustom-" + version);
-                if (Directory.Exists(target) || File.Exists(target))
-                    throw new IOException("目标文件夹已存在，请选择其他保存位置。");
+            if (Directory.Exists(runtime) || File.Exists(runtime))
+                throw new IOException("The existing .net folder does not contain a compatible desktop runtime.");
 
-                string staging = Path.Combine(directory, ".klCustom-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(staging);
-                try
-                {
-                    using (var payload = typeof(Package).Assembly.GetManifestResourceStream("klCustom.payload.zip"))
-                    using (var archive = new ZipArchive(payload, ZipArchiveMode.Read))
-                        archive.ExtractToDirectory(staging);
-
-                    if (includeRuntime)
-                        await DownloadRuntimeAsync(staging).ConfigureAwait(false);
-
-                    Directory.Move(staging, target);
-                    return target;
-                }
-                finally
-                {
-                    if (Directory.Exists(staging))
-                        Directory.Delete(staging, true);
-                }
-            });
+            if (!HasSystemRuntime())
+                Provision(directory, productCode);
         }
 
-        internal static bool HasDesktopRuntime()
+        internal static void Provision(string directory, string productCode)
+        {
+            string staging = Path.Combine(directory, ".klcustom-runtime-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(staging);
+            try
+            {
+                DownloadRuntimeAsync(staging).GetAwaiter().GetResult();
+                if (productCode != null)
+                {
+                    File.WriteAllText(Path.Combine(staging, OwnerFile), Owner);
+                    File.WriteAllText(PendingFile(staging, productCode), productCode);
+                }
+
+                Directory.Move(staging, Path.Combine(directory, ".net"));
+            }
+            finally
+            {
+                if (Directory.Exists(staging))
+                    Directory.Delete(staging, true);
+            }
+        }
+
+        internal static void Commit(string directory, string productCode)
+        {
+            string runtime = Path.Combine(directory, ".net");
+            if (IsOwned(runtime))
+                File.Delete(PendingFile(runtime, productCode));
+        }
+
+        internal static void Remove(string directory, string productCode)
+        {
+            string runtime = Path.Combine(directory, ".net");
+            if (!IsOwned(runtime) || (productCode != null && !File.Exists(PendingFile(runtime, productCode))))
+                return;
+
+            Directory.Delete(runtime, true);
+            if (productCode == null && !Directory.EnumerateFileSystemEntries(directory).Any())
+                Directory.Delete(directory);
+        }
+
+        private static string PendingFile(string runtime, string productCode)
+        {
+            return Path.Combine(runtime, ".pending-" + Guid.Parse(productCode).ToString("N"));
+        }
+
+        private static bool IsOwned(string runtime)
+        {
+            string marker = Path.Combine(runtime, OwnerFile);
+            return Directory.Exists(runtime) &&
+                (File.GetAttributes(runtime) & FileAttributes.ReparsePoint) == 0 &&
+                File.Exists(marker) && File.ReadAllText(marker) == Owner;
+        }
+
+        private static bool HasSystemRuntime()
         {
             using (var localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
             using (var registration = localMachine.OpenSubKey(@"SOFTWARE\dotnet\Setup\InstalledVersions\x64"))
@@ -69,15 +101,19 @@ namespace KlCustom.Downloader
         {
             try
             {
-                return File.Exists(Path.Combine(root, "dotnet.exe")) &&
-                    Directory.EnumerateDirectories(Path.Combine(root, "shared", "Microsoft.WindowsDesktop.App"))
+                if (!Path.IsPathRooted(root) || !File.Exists(Path.Combine(root, "dotnet.exe")) ||
+                    !Directory.EnumerateDirectories(Path.Combine(root, "host", "fxr"))
                         .Any(path =>
                         {
                             Version version;
-                            return Version.TryParse(Path.GetFileName(path), out version) && version.Major == 10 &&
-                                File.Exists(Path.Combine(path, "PresentationFramework.dll")) &&
-                                File.Exists(Path.Combine(root, "shared", "Microsoft.NETCore.App", version.ToString(), "coreclr.dll"));
-                        });
+                            return Version.TryParse(Path.GetFileName(path), out version) && version.Major >= 10 &&
+                                File.Exists(Path.Combine(path, "hostfxr.dll"));
+                        }))
+                    return false;
+
+                var core = FrameworkVersions(root, "Microsoft.NETCore.App", "coreclr.dll").ToArray();
+                return FrameworkVersions(root, "Microsoft.WindowsDesktop.App", "PresentationFramework.dll")
+                    .Any(desktop => core.Any(version => version >= desktop));
             }
             catch (IOException)
             {
@@ -89,7 +125,20 @@ namespace KlCustom.Downloader
             }
         }
 
-        private static async Task DownloadRuntimeAsync(string directory)
+        private static IEnumerable<Version> FrameworkVersions(string root, string framework, string requiredFile)
+        {
+            foreach (string path in Directory.EnumerateDirectories(Path.Combine(root, "shared", framework)))
+            {
+                Version version;
+                if (Version.TryParse(Path.GetFileName(path), out version) && version.Major == 10 &&
+                    version.Minor == 0 && version.Build >= 0 && File.Exists(Path.Combine(path, requiredFile)) &&
+                    File.Exists(Path.Combine(path, framework + ".deps.json")) &&
+                    File.Exists(Path.Combine(path, framework + ".runtimeconfig.json")))
+                    yield return version;
+            }
+        }
+
+        private static async Task DownloadRuntimeAsync(string runtime)
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             using (var handler = new HttpClientHandler { AllowAutoRedirect = false })
@@ -106,8 +155,6 @@ namespace KlCustom.Downloader
                 if (release == null || !Version.TryParse(release.releaseVersion, out version) || version.Major != 10)
                     throw new IOException("微软的发布信息中找不到 .NET 10。");
 
-                string runtime = Path.Combine(directory, ".net");
-                Directory.CreateDirectory(runtime);
                 using (var core = await DownloadZipAsync(client, release.runtime, "dotnet-runtime", version, runtime).ConfigureAwait(false))
                     core.ExtractToDirectory(runtime);
                 using (var desktop = await DownloadZipAsync(client, release.desktop, "windowsdesktop-runtime", version, runtime).ConfigureAwait(false))

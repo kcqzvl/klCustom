@@ -9,7 +9,7 @@ For questions or suggestions, please open an issue. [GitHub Issues](https://gith
 ## Getting started
 
 - **7z portable package**. Extract the entire app folder and run `klCustom.exe`. The package includes the .NET 10 Desktop Runtime in the `.net` folder alongside the executable.
-- **EXE installer**. Run `klCustom-<version>-installer-x64.exe`, choose a destination, and choose whether to download the x64 .NET 10 Desktop Runtime from Microsoft. The installer puts the app in its own folder. When selected, the runtime goes into that folder's `.net` subfolder. With the option cleared, the app uses the .NET 10 Desktop Runtime installed in Windows.
+- **MSI installer**. Run `klCustom-<version>-installer-x64.msi` and choose an installation folder. If a compatible x64 .NET 10 Desktop Runtime is available, setup skips the download. Otherwise, setup needs an internet connection to download and verify the runtime from Microsoft and place it in the `.net` subfolder alongside `klCustom.exe`.
 
 [GitHub Releases](https://github.com/kcqzvl/klCustom/releases)
 
@@ -40,9 +40,17 @@ dotnet run --project tests/RuleChecks.csproj -c Release
 
 The build places `klCustom.exe` and its bundled Start menu component in `artifacts/klCustom/` by default.
 
-To package both release downloads, run `Build-Release.ps1` with `-NativeDllPath`, `-SevenZipPath`, and a new `-OutputDirectory`. Use the native DLL from the standalone build.
+To package the MSI and 7z downloads, install WiX 5.0.2 and its UI extension into the same tools directory.
 
-Add `-SigningCertificateThumbprint` with your code-signing certificate’s thumbprint to sign the EXE and both DLLs. Use `-TimestampServer` to timestamp the signatures. Self-signed certificates require `-AllowSelfSigned`.
+```powershell
+dotnet tool install wix --version 5.0.2 --tool-path artifacts/wix
+Push-Location artifacts/wix
+.\wix.exe extension add WixToolset.UI.wixext/5.0.2
+Pop-Location
+.\Build-Release.ps1 -WixPath ./artifacts/wix/wix.exe -NativeDllPath ./artifacts/klCustom/kzlStartMenuHost5.dll -SevenZipPath 'path\to\7z.exe' -OutputDirectory ./artifacts/release
+```
+
+Add `-SigningCertificateThumbprint` with your code-signing certificate’s thumbprint to sign the application files and installer. Use `-TimestampServer` to timestamp the signatures. Self-signed certificates require `-AllowSelfSigned`.
 
 The app checks the host version and manages applying and restoring styles. [Host detection and style management](https://github.com/kcqzvl/klCustom/blob/main/NativeStartMenu.cs)
 

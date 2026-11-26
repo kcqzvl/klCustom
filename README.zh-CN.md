@@ -9,7 +9,7 @@ kl Custom 是一款独立的 Windows 11 x64 工具，可分别自定义开始菜
 ## 开始使用
 
 - **7z 解压版**。解压完整的工具箱文件夹后运行 `klCustom.exe`。包内的 `.net` 文件夹已包含 .NET 10 桌面运行库。
-- **EXE 安装器**。运行 `klCustom-<版本>-installer-x64.exe`，选择保存目录，并按需勾选从微软下载 x64 .NET 10 桌面运行库。安装器会在所选目录中新建工具箱文件夹，勾选后将运行库放入其中的 `.net` 子目录。取消勾选时，工具箱使用系统已安装的 .NET 10 桌面运行库。
+- **MSI 安装版**。运行 `klCustom-<版本>-installer-x64.msi` 并选择安装目录。检测到兼容的 x64 .NET 10 桌面运行库时跳过下载。缺少时，安装程序需要联网从微软自动下载并校验运行库，然后解压到与 `klCustom.exe` 同级的 `.net` 子目录。
 
 [GitHub 发布页](https://github.com/kcqzvl/klCustom/releases)
 
@@ -40,9 +40,17 @@ dotnet run --project tests/RuleChecks.csproj -c Release
 
 构建后，`klCustom.exe` 和随附的开始菜单组件默认位于 `artifacts/klCustom/`。
 
-使用 `Build-Release.ps1` 打包两种发布文件。通过 `-NativeDllPath` 指定上一步生成的原生 DLL，通过 `-SevenZipPath` 指定 7-Zip，并通过 `-OutputDirectory` 指定一个新目录。
+打包 MSI 和 7z 前，将 WiX 5.0.2 及其界面扩展安装到同一工具目录。
 
-构建时可用 `-SigningCertificateThumbprint` 指定代码签名证书的指纹，为 EXE 和两个 DLL 签名。用 `-TimestampServer` 为签名添加时间戳。使用自签名证书时需加上 `-AllowSelfSigned`。
+```powershell
+dotnet tool install wix --version 5.0.2 --tool-path artifacts/wix
+Push-Location artifacts/wix
+.\wix.exe extension add WixToolset.UI.wixext/5.0.2
+Pop-Location
+.\Build-Release.ps1 -WixPath ./artifacts/wix/wix.exe -NativeDllPath ./artifacts/klCustom/kzlStartMenuHost5.dll -SevenZipPath 'path\to\7z.exe' -OutputDirectory ./artifacts/release
+```
+
+构建时可用 `-SigningCertificateThumbprint` 指定代码签名证书的指纹，为应用文件和安装包签名。用 `-TimestampServer` 为签名添加时间戳。使用自签名证书时需加上 `-AllowSelfSigned`。
 
 应用负责检查宿主版本，并管理样式的应用与恢复。[宿主检测与样式管理](https://github.com/kcqzvl/klCustom/blob/main/NativeStartMenu.cs)
 

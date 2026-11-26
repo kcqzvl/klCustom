@@ -1,0 +1,68 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="kl Custom" Manufacturer="kcqzvl" Version="$(var.Version)"
+           UpgradeCode="{9D8A0819-33A2-48E5-A57F-FE042D17AA6C}" Scope="perUser">
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of kl Custom is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPINSTALLLOCATION" Secure="yes" />
+    <Property Id="PREVIOUSINSTALLFOLDER" Secure="yes">
+      <RegistrySearch Id="FindPreviousInstallFolder" Root="HKCU" Key="Software\kcqzvl\klCustom\Installer"
+                      Name="InstallDirectory" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="INSTALLFOLDER" Value="[PREVIOUSINSTALLFOLDER]" Before="CostFinalize"
+                 Condition="PREVIOUSINSTALLFOLDER AND NOT INSTALLFOLDER" />
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" Sequence="execute" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="kl Custom">
+          <Component Id="Application" Guid="{EE01ED5D-5165-4BA2-9C54-42402E0CA756}">
+            <File Id="ApplicationExe" Source="$(var.PayloadDir)\klCustom.exe" />
+            <File Source="$(var.PayloadDir)\klCustom.dll" />
+            <File Source="$(var.PayloadDir)\klCustom.deps.json" />
+            <File Source="$(var.PayloadDir)\klCustom.runtimeconfig.json" />
+            <File Source="$(var.PayloadDir)\kzlStartMenuHost5.dll" />
+            <File Source="$(var.PayloadDir)\LICENSE" />
+            <File Source="$(var.PayloadDir)\README.md" />
+            <File Source="$(var.PayloadDir)\README.zh-CN.md" />
+            <RegistryValue Root="HKCU" Key="Software\kcqzvl\klCustom\Installer" Name="InstallDirectory"
+                           Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+            <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="{7CD2E107-6F6C-44D6-88A2-B84659EB8F9D}">
+        <Shortcut Id="OpenKlCustom" Name="kl Custom" Target="[#ApplicationExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\kcqzvl\klCustom\Installer" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="Main" Title="kl Custom">
+      <ComponentRef Id="Application" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <Binary Id="RuntimeSetup" SourceFile="$(var.RuntimeSetup)" />
+    <CustomAction Id="RollbackRuntime" BinaryRef="RuntimeSetup" Execute="rollback" Return="ignore"
+                  ExeCommand='rollback "[INSTALLFOLDER]." "[ProductCode]"' />
+    <CustomAction Id="EnsureRuntime" BinaryRef="RuntimeSetup" Execute="deferred" Return="check"
+                  ExeCommand='ensure "[INSTALLFOLDER]." "[ProductCode]"' />
+    <CustomAction Id="CommitRuntime" BinaryRef="RuntimeSetup" Execute="commit" Return="ignore"
+                  ExeCommand='commit "[INSTALLFOLDER]." "[ProductCode]" "[PREVIOUSINSTALLFOLDER]."' />
+    <CustomAction Id="RemoveRuntime" BinaryRef="RuntimeSetup" Execute="commit" Return="ignore"
+                  ExeCommand='remove "[INSTALLFOLDER]."' />
+    <InstallExecuteSequence>
+      <Custom Action="RollbackRuntime" After="InstallFiles" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="EnsureRuntime" After="RollbackRuntime" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="CommitRuntime" After="EnsureRuntime" Condition="NOT Installed OR REINSTALL" />
+      <Custom Action="RemoveRuntime" Before="InstallFinalize" Condition='REMOVE = "ALL" AND NOT UPGRADINGPRODUCTCODE' />
+    </InstallExecuteSequence>
+    <UI>
+      <ProgressText Action="EnsureRuntime" Message="Checking the .NET 10 Desktop Runtime" />
+    </UI>
+  </Package>
+</Wix>

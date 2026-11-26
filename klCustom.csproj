@@ -10,7 +10,7 @@
     <AssemblyName>klCustom</AssemblyName>
     <Product>klCustom</Product>
     <RootNamespace>StartStyleToolbox</RootNamespace>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <StartupObject>StartStyleToolbox.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup Condition="'$(PortableRuntimeLayout)' == 'true'">
@@ -18,6 +18,6 @@
     <AppHostRelativeDotNet>.net</AppHostRelativeDotNet>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="tests/**/*.cs;downloader/**/*.cs" />
+    <Compile Remove="tests/**/*.cs;installer/**/*.cs" />
   </ItemGroup>
 </Project>
